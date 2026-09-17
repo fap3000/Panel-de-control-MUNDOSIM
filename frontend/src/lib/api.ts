@@ -1,0 +1,33 @@
+import axios from 'axios'
+
+export const api = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
+})
+
+export type ProveedorResumen = {
+  Proveedor: string
+  Saldo: string
+  'USD con TC Blue del dia': string
+  'RMA pendiente': string
+  'NC pendiente': string
+  'OC Pendientes': string
+}
+
+export type CompraDiaria = {
+  FECHA: string
+  'INGRESOS TOTALES ($)': string
+  'TIPO CAMBIO (U$) BLUE': string
+  'TOTAL EN DÓLARES (U$)': string
+  VENTAS: string
+  'COMPRAS (U$)': string
+  COMPRAS: string
+}
+
+export type PedidoTrello = {
+  id: string
+  nombre: string
+  lista: string
+  vencimiento: string | null
+  ultima_actividad: string | null
+  etiquetas: string[]
+}
