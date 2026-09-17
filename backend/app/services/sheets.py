@@ -74,10 +74,9 @@ def _sum_by_date(values: list[list[str]], date_col: int, amount_cols: list[int])
     return totals
 
 
-def _sorted_dates(*date_dicts: dict[str, float]) -> list[str]:
-    all_dates = set()
-    for d in date_dicts:
-        all_dates.update(d.keys())
+def sort_fechas(fechas) -> list[str]:
+    """Ordena fechas 'dd/mm/yyyy' cronológicamente (un sort de string común las
+    ordenaría mal, ej. '31/10/2024' antes que '05/09/2026')."""
 
     def _key(fecha: str):
         try:
@@ -85,7 +84,14 @@ def _sorted_dates(*date_dicts: dict[str, float]) -> list[str]:
         except ValueError:
             return datetime.min
 
-    return sorted(all_dates, key=_key)
+    return sorted(fechas, key=_key)
+
+
+def _sorted_dates(*date_dicts: dict[str, float]) -> list[str]:
+    all_dates = set()
+    for d in date_dicts:
+        all_dates.update(d.keys())
+    return sort_fechas(all_dates)
 
 
 def get_ventas_diarias(sheet_id: str) -> list[dict]:
@@ -183,5 +189,99 @@ def get_transferencias_por_cuenta(sheet_id: str, desde: datetime, hasta: datetim
 
     return sorted(
         ({"cuenta": cuenta, "total": round(total, 2)} for cuenta, total in combinado.items()),
+        key=lambda item: -item["total"],
+    )
+
+
+# 'Mdz $' y 'SJ $' comparten encabezado pero NO el mismo orden de columnas reales:
+# en 'SJ $' "Motivo" y "Acumulado" están invertidos respecto a 'Mdz $' (verificado
+# contra los datos crudos, no solo contra el encabezado).
+_LIBROS_CAJA = {
+    "Mdz $": {"date": 1, "gasto": 4, "salida": 5, "motivo": 7},
+    "SJ $": {"date": 1, "gasto": 4, "salida": 5, "motivo": 6},
+}
+
+_CATEGORIAS_EGRESO = [
+    ("SUELDO", "Sueldos"),
+    ("DIF", "Diferencias de caja"),
+    ("FALTANTE", "Diferencias de caja"),
+    ("SOBRANTE", "Diferencias de caja"),
+    ("DESAYUNO", "Desayuno"),
+    ("CAMION", "Camionera / Flete"),
+    ("USDT", "Compra USDT"),
+    ("AGUA", "Servicios"),
+    ("LUZ", "Servicios"),
+    ("ALQUILER", "Alquiler"),
+    ("CONTADOR", "Contador"),
+]
+
+
+def _categorizar_motivo(motivo: str) -> str:
+    """Agrupa el texto libre de 'Motivo' en categorías. Es un heurístico por palabra
+    clave (los datos originales no tienen una categoría estructurada) — ver
+    _CATEGORIAS_EGRESO para ajustar las reglas."""
+    m = motivo.upper()
+    for keyword, categoria in _CATEGORIAS_EGRESO:
+        if keyword in m:
+            return categoria
+    return "Otros"
+
+
+def get_egresos_diarios(sheet_id: str) -> list[dict]:
+    """Egresos diarios por sucursal (Gasto + Salida de caja)."""
+    sh = _get_client().open_by_key(sheet_id)
+    totales = {}
+    for hoja, cols in _LIBROS_CAJA.items():
+        totales[hoja] = _sum_by_date(
+            sh.worksheet(hoja).get_all_values(), date_col=cols["date"], amount_cols=[cols["gasto"], cols["salida"]]
+        )
+
+    fechas = _sorted_dates(*totales.values())
+    return [
+        {
+            "fecha": fecha,
+            "mdz": round(totales["Mdz $"].get(fecha, 0.0), 2),
+            "sj": round(totales["SJ $"].get(fecha, 0.0), 2),
+            "total": round(totales["Mdz $"].get(fecha, 0.0) + totales["SJ $"].get(fecha, 0.0), 2),
+        }
+        for fecha in fechas
+    ]
+
+
+def get_egresos_por_categoria(sheet_id: str, desde: datetime, hasta: datetime) -> list[dict]:
+    """Egresos agrupados por categoría (heurística sobre 'Motivo'), separados por
+    sucursal, en un rango de fechas. Incluye 'Sueldos' como una categoría más, ya
+    separada por local."""
+    sh = _get_client().open_by_key(sheet_id)
+    por_categoria: dict[str, dict[str, float]] = defaultdict(lambda: {"mdz": 0.0, "sj": 0.0})
+
+    branch_key = {"Mdz $": "mdz", "SJ $": "sj"}
+    for hoja, cols in _LIBROS_CAJA.items():
+        values = sh.worksheet(hoja).get_all_values()
+        key = branch_key[hoja]
+        for row in values[1:]:
+            date_col = cols["date"]
+            if len(row) <= date_col or not row[date_col].strip():
+                continue
+            fecha = row[date_col].strip()
+            if not _is_fecha_valida(fecha):
+                continue
+            d = datetime.strptime(fecha, "%d/%m/%Y")
+            if not (desde <= d <= hasta):
+                continue
+            monto = parse_amount(row[cols["gasto"]] if cols["gasto"] < len(row) else "") + parse_amount(
+                row[cols["salida"]] if cols["salida"] < len(row) else ""
+            )
+            if not monto:
+                continue
+            motivo = row[cols["motivo"]].strip() if cols["motivo"] < len(row) else ""
+            categoria = _categorizar_motivo(motivo) if motivo else "Otros"
+            por_categoria[categoria][key] += monto
+
+    return sorted(
+        (
+            {"categoria": cat, "mdz": round(v["mdz"], 2), "sj": round(v["sj"], 2), "total": round(v["mdz"] + v["sj"], 2)}
+            for cat, v in por_categoria.items()
+        ),
         key=lambda item: -item["total"],
     )

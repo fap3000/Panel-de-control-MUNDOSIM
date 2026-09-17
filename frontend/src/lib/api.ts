@@ -49,3 +49,17 @@ export type TransferenciaPorCuenta = {
   cuenta: string
   total: number
 }
+
+export type ContabilidadDiaria = {
+  fecha: string
+  ingresos: number
+  egresos: number
+  neto: number
+}
+
+export type EgresoPorCategoria = {
+  categoria: string
+  mdz: number
+  sj: number
+  total: number
+}
