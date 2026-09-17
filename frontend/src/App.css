@@ -324,6 +324,26 @@ th {
   margin-bottom: 4px;
 }
 
+.widget-table-scroll {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.widget-mini-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+}
+
+.widget-mini-table td {
+  padding: 3px 4px;
+  border-bottom: 1px solid #f0f1f3;
+}
+
+.widget-mini-table td:last-child {
+  text-align: right;
+}
+
 .picker-overlay {
   position: fixed;
   inset: 0;

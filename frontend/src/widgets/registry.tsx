@@ -7,7 +7,7 @@ import type {
   ProveedorResumen,
   VentaDiaria,
 } from '../lib/api'
-import { formatArs, formatUsd, parseMoney } from '../lib/format'
+import { formatArs, formatPercent, formatUsd, parseMoney } from '../lib/format'
 import { type LoadState, useEndpoint } from '../lib/useEndpoint'
 
 function parseFechaDDMMYYYY(fecha: string): Date {
@@ -104,6 +104,22 @@ function VentasAcumuladoMesWidget() {
   return <KpiWidget label="Acumulado del mes (ingreso)" value={formatArs(total)} />
 }
 
+function VentasVsPromedioWidget() {
+  const v = useEndpoint<VentaDiaria[]>('/ventas/diarias')
+  if (v.status !== 'ok') return <EstadoCarga state={v} />
+  const hoy = v.data[v.data.length - 1]
+  const historicos = v.data.map((r) => r.combinado).filter((x) => x > 0)
+  const promedio = historicos.length ? historicos.reduce((a, b) => a + b, 0) / historicos.length : 0
+  const delta = promedio > 0 ? ((hoy.combinado - promedio) / promedio) * 100 : 0
+  return (
+    <KpiWidget
+      label="Hoy vs. promedio histórico"
+      value={formatPercent(delta)}
+      hint={`promedio diario: ${formatArs(promedio)}`}
+    />
+  )
+}
+
 function VentasDiariasWidget() {
   const v = useEndpoint<VentaDiaria[]>('/ventas/diarias')
   if (v.status !== 'ok') return <EstadoCarga state={v} />
@@ -131,6 +147,29 @@ function NetoMesWidget() {
   const mes = c.data.filter((r) => esMismoMes(r.fecha, new Date()))
   const total = mes.reduce((s, r) => s + r.neto, 0)
   return <KpiWidget label="Neto del mes" value={formatArs(total)} />
+}
+
+function CuentasPorPagarWidget() {
+  const proveedores = useEndpoint<ProveedorResumen[]>('/compras/resumen-proveedores')
+  if (proveedores.status !== 'ok') return <EstadoCarga state={proveedores} />
+  const rows = proveedores.data.filter((p) => p.Proveedor)
+  return (
+    <div className="widget-chart">
+      <span className="widget-title">Cuentas por pagar (proveedores)</span>
+      <div className="widget-table-scroll">
+        <table className="widget-mini-table">
+          <tbody>
+            {rows.map((p) => (
+              <tr key={p.Proveedor}>
+                <td>{p.Proveedor}</td>
+                <td>{p['USD con TC Blue del dia']}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
 }
 
 function IngresosEgresosWidget() {
@@ -163,6 +202,7 @@ export const WIDGET_CATALOG: WidgetDef[] = [
   { id: 'ventas.transferenciasHoy', label: 'Ventas: transferencias hoy', grupo: 'Ventas', defaultSize: { w: 1, h: 1 }, Component: () => <VentasHoyWidget campo="transferencias" label="Transferencias hoy" /> },
   { id: 'ventas.efectivoHoy', label: 'Ventas: efectivo hoy', grupo: 'Ventas', defaultSize: { w: 1, h: 1 }, Component: () => <VentasHoyWidget campo="efectivo" label="Efectivo hoy" /> },
   { id: 'ventas.acumuladoMes', label: 'Ventas: acumulado del mes', grupo: 'Ventas', defaultSize: { w: 1, h: 1 }, Component: VentasAcumuladoMesWidget },
+  { id: 'ventas.vsPromedio', label: 'Ventas: hoy vs. promedio histórico', grupo: 'Ventas', defaultSize: { w: 1, h: 1 }, Component: VentasVsPromedioWidget },
   { id: 'ventas.diarias', label: 'Gráfico: Ventas diarias', grupo: 'Ventas', defaultSize: { w: 2, h: 2 }, Component: VentasDiariasWidget },
 
   { id: 'contabilidad.ingresosHoy', label: 'Contabilidad: ingresos hoy', grupo: 'Contabilidad', defaultSize: { w: 1, h: 1 }, Component: () => <ContabilidadHoyWidget campo="ingresos" label="Ingresos hoy" /> },
@@ -170,4 +210,5 @@ export const WIDGET_CATALOG: WidgetDef[] = [
   { id: 'contabilidad.netoHoy', label: 'Contabilidad: neto hoy', grupo: 'Contabilidad', defaultSize: { w: 1, h: 1 }, Component: () => <ContabilidadHoyWidget campo="neto" label="Neto hoy" /> },
   { id: 'contabilidad.netoMes', label: 'Contabilidad: neto del mes', grupo: 'Contabilidad', defaultSize: { w: 1, h: 1 }, Component: NetoMesWidget },
   { id: 'contabilidad.ingresosEgresos', label: 'Gráfico: Neto diario', grupo: 'Contabilidad', defaultSize: { w: 2, h: 2 }, Component: IngresosEgresosWidget },
+  { id: 'contabilidad.cuentasPorPagar', label: 'Cuentas por pagar (por proveedor)', grupo: 'Contabilidad', defaultSize: { w: 2, h: 2 }, Component: CuentasPorPagarWidget },
 ]

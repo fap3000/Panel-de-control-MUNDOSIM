@@ -9,8 +9,8 @@ import {
   YAxis,
 } from 'recharts'
 import { KpiCard } from '../components/KpiCard'
-import type { ContabilidadDiaria, EgresoPorCategoria } from '../lib/api'
-import { formatArs } from '../lib/format'
+import type { ContabilidadDiaria, EgresoPorCategoria, ProveedorResumen } from '../lib/api'
+import { formatArs, formatUsd, parseMoney } from '../lib/format'
 import { useEndpoint } from '../lib/useEndpoint'
 
 function parseFechaDDMMYYYY(fecha: string): Date {
@@ -30,6 +30,7 @@ function suma(data: ContabilidadDiaria[], key: keyof Omit<ContabilidadDiaria, 'f
 export function Contabilidad() {
   const diario = useEndpoint<ContabilidadDiaria[]>('/contabilidad/diario')
   const egresosCategoria = useEndpoint<EgresoPorCategoria[]>('/contabilidad/egresos-por-categoria')
+  const proveedores = useEndpoint<ProveedorResumen[]>('/compras/resumen-proveedores')
 
   return (
     <div className="page">
@@ -114,6 +115,43 @@ export function Contabilidad() {
               </tbody>
             </table>
           </div>
+        )}
+      </section>
+
+      <section className="panel">
+        <h2>Cuentas por pagar a proveedores</h2>
+        {proveedores.status === 'loading' && <p>Cargando...</p>}
+        {proveedores.status === 'error' && <p className="error">Error: {proveedores.message}</p>}
+        {proveedores.status === 'ok' && (
+          <>
+            <p className="hint-row">
+              Saldo total adeudado:{' '}
+              {formatUsd(proveedores.data.reduce((s, p) => s + parseMoney(p['USD con TC Blue del dia']), 0))} (TC
+              blue del día)
+            </p>
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Proveedor</th>
+                    <th>Saldo</th>
+                    <th>USD (TC blue)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {proveedores.data
+                    .filter((p) => p.Proveedor)
+                    .map((p) => (
+                      <tr key={p.Proveedor}>
+                        <td data-label="Proveedor">{p.Proveedor}</td>
+                        <td data-label="Saldo">{p.Saldo}</td>
+                        <td data-label="USD (TC blue)">{p['USD con TC Blue del dia']}</td>
+                      </tr>
+                    ))}
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </section>
     </div>
