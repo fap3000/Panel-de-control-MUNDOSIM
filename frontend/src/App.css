@@ -1,5 +1,16 @@
 :root {
   color-scheme: light;
+
+  /* Paleta de estado (dataviz skill) — reservada, no se reusa como color de serie */
+  --status-good: #0ca30c;
+  --status-good-text: #006300;
+  --status-good-bg: #e5f6e5;
+  --status-warning: #fab219;
+  --status-warning-bg: #fff6df;
+  --status-critical: #d03b3b;
+  --status-critical-bg: #fbe8e8;
+  --status-info: #2a78d6;
+  --status-info-bg: #e9f1fc;
 }
 
 *,
@@ -81,12 +92,58 @@ body {
 .kpi-card {
   background: #fff;
   border: 1px solid #e5e7eb;
+  border-left: 4px solid #e5e7eb;
   border-radius: 10px;
   padding: 12px 14px;
   display: flex;
   flex-direction: column;
   gap: 4px;
   min-width: 0;
+}
+
+.kpi-card.tone-good {
+  background: var(--status-good-bg);
+  border-left-color: var(--status-good);
+}
+
+.kpi-card.tone-warning {
+  background: var(--status-warning-bg);
+  border-left-color: var(--status-warning);
+}
+
+.kpi-card.tone-critical {
+  background: var(--status-critical-bg);
+  border-left-color: var(--status-critical);
+}
+
+.kpi-card.tone-info {
+  background: var(--status-info-bg);
+  border-left-color: var(--status-info);
+}
+
+.kpi-tone-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 5px;
+  vertical-align: middle;
+}
+
+.kpi-tone-dot.tone-good {
+  background: var(--status-good);
+}
+
+.kpi-tone-dot.tone-warning {
+  background: var(--status-warning);
+}
+
+.kpi-tone-dot.tone-critical {
+  background: var(--status-critical);
+}
+
+.kpi-tone-dot.tone-info {
+  background: var(--status-info);
 }
 
 .kpi-label {
@@ -100,6 +157,44 @@ body {
   font-size: 20px;
   font-weight: 600;
   overflow-wrap: break-word;
+}
+
+.kpi-value.tone-good {
+  color: var(--status-good-text);
+}
+
+.kpi-value.tone-critical {
+  color: var(--status-critical);
+}
+
+.kpi-meter-track {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(11, 11, 11, 0.08);
+  margin-top: 6px;
+  overflow: hidden;
+}
+
+.kpi-meter-fill {
+  height: 100%;
+  border-radius: 3px;
+}
+
+.kpi-meter-fill.tone-good {
+  background: var(--status-good);
+}
+
+.kpi-meter-fill.tone-warning {
+  background: var(--status-warning);
+}
+
+.kpi-meter-fill.tone-critical {
+  background: var(--status-critical);
+}
+
+.kpi-meter-fill.tone-info,
+.kpi-meter-fill.tone-neutral {
+  background: var(--status-info);
 }
 
 .kpi-hint {
@@ -126,6 +221,91 @@ body {
   font-size: 12px;
   color: #6b7280;
   margin: 10px 0 0;
+}
+
+/* Tarjetas de proveedor (Compras / Contabilidad) */
+
+.proveedores-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 10px;
+}
+
+.proveedor-card {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.proveedor-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.proveedor-nombre {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.proveedor-saldo {
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.proveedor-saldo.tone-good {
+  color: var(--status-good-text);
+}
+
+.proveedor-saldo.tone-warning {
+  color: #b3660a;
+}
+
+.proveedor-saldo.tone-critical {
+  color: var(--status-critical);
+}
+
+.proveedor-bar-track {
+  height: 7px;
+  border-radius: 4px;
+  background: rgba(11, 11, 11, 0.07);
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.proveedor-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+}
+
+.proveedor-bar-fill.tone-good {
+  background: var(--status-good);
+}
+
+.proveedor-bar-fill.tone-warning {
+  background: var(--status-warning);
+}
+
+.proveedor-bar-fill.tone-critical {
+  background: var(--status-critical);
+}
+
+.proveedor-bar-fill.tone-neutral {
+  background: #c3c2b7;
+}
+
+.proveedor-detalle {
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1.5;
+}
+
+.proveedor-detalle strong {
+  color: #374151;
+  font-weight: 600;
 }
 
 .table-wrap {
@@ -302,6 +482,29 @@ th {
   gap: 4px;
   justify-content: center;
   width: 100%;
+  border-left: 4px solid transparent;
+  padding: 12px 14px;
+  margin: -12px -14px;
+}
+
+.widget-kpi.tone-good {
+  background: var(--status-good-bg);
+  border-left-color: var(--status-good);
+}
+
+.widget-kpi.tone-warning {
+  background: var(--status-warning-bg);
+  border-left-color: var(--status-warning);
+}
+
+.widget-kpi.tone-critical {
+  background: var(--status-critical-bg);
+  border-left-color: var(--status-critical);
+}
+
+.widget-kpi.tone-info {
+  background: var(--status-info-bg);
+  border-left-color: var(--status-info);
 }
 
 .widget-msg {

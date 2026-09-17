@@ -62,24 +62,27 @@ export function Ventas() {
         return (
           <>
             <section className="kpis">
-              <KpiCard label="Consolidado hoy" value={formatArs(hoy.combinado)} hint={`${hoy.fecha} · Mdz + SJ`} />
-              <KpiCard label="Transferencias hoy" value={formatArs(hoy.transferencias)} />
-              <KpiCard label="Efectivo hoy" value={formatArs(hoy.efectivo)} />
+              <KpiCard label="Consolidado hoy" value={formatArs(hoy.combinado)} hint={`${hoy.fecha} · Mdz + SJ`} tone="info" />
+              <KpiCard label="Transferencias hoy" value={formatArs(hoy.transferencias)} tone="info" />
+              <KpiCard label="Efectivo hoy" value={formatArs(hoy.efectivo)} tone="info" />
               <KpiCard
                 label="Hoy vs. promedio histórico"
                 value={formatPercent(deltaHoy)}
                 hint={`promedio diario: ${formatArs(promCombinado)}`}
+                tone={deltaHoy >= 0 ? 'good' : deltaHoy > -20 ? 'warning' : 'critical'}
               />
             </section>
 
             <section className="kpis">
-              <KpiCard label="Acumulado del mes (ingreso)" value={formatArs(sumaKey(mesActual, 'combinado'))} />
-              <KpiCard label="Acumulado transferencias del mes" value={formatArs(sumaKey(mesActual, 'transferencias'))} />
-              <KpiCard label="Acumulado efectivo del mes" value={formatArs(sumaKey(mesActual, 'efectivo'))} />
+              <KpiCard label="Acumulado del mes (ingreso)" value={formatArs(sumaKey(mesActual, 'combinado'))} tone="info" />
+              <KpiCard label="Acumulado transferencias del mes" value={formatArs(sumaKey(mesActual, 'transferencias'))} tone="info" />
+              <KpiCard label="Acumulado efectivo del mes" value={formatArs(sumaKey(mesActual, 'efectivo'))} tone="info" />
               <KpiCard
                 label="Días hábiles del mes"
                 value={`${dias.transcurridos} / ${dias.totalMes}`}
                 hint={`restan ${dias.restantes} (sin domingos ni feriados)`}
+                tone="info"
+                meterPercent={(dias.transcurridos / dias.totalMes) * 100}
               />
             </section>
 

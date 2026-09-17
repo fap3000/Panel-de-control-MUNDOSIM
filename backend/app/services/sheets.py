@@ -295,3 +295,134 @@ def get_egresos_por_categoria(sheet_id: str, desde: datetime, hasta: datetime) -
         ),
         key=lambda item: -item["total"],
     )
+
+
+# --- Estimación de días para saldar cada cuenta corriente de proveedor ---
+#
+# Cada hoja de proveedor en PAGOS PROVEEDORES está armada a mano con su propia
+# estructura (no hay un formato común, a diferencia de Mdz $/SJ $). Esto solo
+# cubre los proveedores donde se pudo identificar con confianza una columna de
+# "pago" limpia; Tradermax (hoja rota, "#REF!") y Merlo (columnas ambiguas,
+# fechas sin año confiable) quedan afuera a pedido de Fer.
+_PROVEEDOR_PAGO_CONFIG = {
+    "SILEO": {"hoja": "SILEO", "date_col": 0, "pago_cols": [2, 3], "fecha_con_anio": True},
+    "JONA": {"hoja": "JONA", "date_col": 0, "pago_cols": [4], "fecha_con_anio": True},
+    "THE ONE": {"hoja": "The ONE", "date_col": 0, "pago_cols": [5], "fecha_con_anio": True},
+    "MUNDO PARTS": {"hoja": "MUNDO PARTS", "date_col": 0, "pago_cols": [2], "fecha_con_anio": False},
+    "JULIO U.": {"hoja": "JULIO U", "date_col": 0, "pago_cols": [4], "fecha_con_anio": False},
+}
+
+_ULTIMOS_N_PAGOS = 20
+
+
+def _parse_fecha_con_anio(fecha_str: str) -> datetime | None:
+    for fmt in ("%d/%m/%Y", "%d/%m/%y"):
+        try:
+            return datetime.strptime(fecha_str.strip(), fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _inferir_fechas_sin_anio(pagos: list[dict]) -> None:
+    """Para hojas donde la fecha no trae año (ej. '8/7'): asume que las filas están
+    en orden cronológico y reconstruye el año detectando cuándo el mes 'retrocede'
+    (indica que se cruzó a un año siguiente), anclando la última fila al año actual."""
+    anio_relativo = 0
+    mes_anterior = None
+    for p in pagos:
+        _dia, mes = p["_dia_mes"]
+        if mes_anterior is not None and mes < mes_anterior:
+            anio_relativo += 1
+        mes_anterior = mes
+        p["_anio_relativo"] = anio_relativo
+
+    if not pagos:
+        return
+    anio_actual = datetime.now().year
+    max_relativo = pagos[-1]["_anio_relativo"]
+    anio_base = anio_actual - max_relativo
+    for p in pagos:
+        dia, mes = p["_dia_mes"]
+        try:
+            p["fecha"] = datetime(anio_base + p["_anio_relativo"], mes, dia)
+        except ValueError:
+            p["fecha"] = None
+
+
+def _pagos_de_proveedor(sheet_id: str, config: dict) -> list[dict]:
+    """Devuelve las filas con pago > 0 de una hoja de proveedor, con fecha resuelta,
+    en el orden en que aparecen en la hoja (se asume cronológico, igual que el resto
+    de estas planillas armadas a mano)."""
+    values = _get_values_cached(sheet_id, config["hoja"])
+    date_col = config["date_col"]
+    pagos = []
+    for row in values[1:]:
+        if len(row) <= date_col or not row[date_col].strip():
+            continue
+        monto = sum(parse_amount(row[c]) if c < len(row) else 0.0 for c in config["pago_cols"])
+        if not monto:
+            continue
+        fecha_str = row[date_col].strip()
+        entry = {"monto": monto}
+        if config["fecha_con_anio"]:
+            entry["fecha"] = _parse_fecha_con_anio(fecha_str)
+        else:
+            partes = fecha_str.split("/")
+            if len(partes) != 2 or not partes[0].isdigit() or not partes[1].isdigit():
+                continue
+            entry["_dia_mes"] = (int(partes[0]), int(partes[1]))
+            entry["fecha"] = None
+        pagos.append(entry)
+
+    if not config["fecha_con_anio"]:
+        _inferir_fechas_sin_anio(pagos)
+
+    return [p for p in pagos if p["fecha"] is not None]
+
+
+def get_estimacion_pago_proveedores(sheet_id_pagos: str) -> list[dict]:
+    """Estimación de días para saldar cada cuenta corriente, usando el ritmo de pago
+    de los últimos 20 pagos registrados (ventana por cantidad, no por fecha, a
+    pedido de Fer)."""
+    resumen = get_resumen_proveedores(sheet_id_pagos)
+    hoy = datetime.now().date()
+    resultado = []
+
+    for row in resumen:
+        proveedor = row.get("Proveedor", "").strip()
+        if not proveedor:
+            continue
+        config = _PROVEEDOR_PAGO_CONFIG.get(proveedor.upper())
+        saldo = parse_amount(row.get("Saldo", ""))
+
+        if not config:
+            resultado.append({"proveedor": proveedor, "saldo": round(saldo, 2), "sin_datos": True})
+            continue
+
+        pagos = _pagos_de_proveedor(sheet_id_pagos, config)
+        pago_hoy = sum(p["monto"] for p in pagos if p["fecha"].date() == hoy)
+
+        ultimos = pagos[-_ULTIMOS_N_PAGOS:]
+        dias_para_saldar = None
+        pago_promedio_diario = None
+        if len(ultimos) >= 2 and saldo > 0:
+            total_ultimos = sum(p["monto"] for p in ultimos)
+            dias_span = max((ultimos[-1]["fecha"] - ultimos[0]["fecha"]).days, 1)
+            pago_promedio_diario = total_ultimos / dias_span
+            if pago_promedio_diario > 0:
+                dias_para_saldar = saldo / pago_promedio_diario
+
+        resultado.append(
+            {
+                "proveedor": proveedor,
+                "saldo": round(saldo, 2),
+                "pago_hoy": round(pago_hoy, 2),
+                "pago_promedio_diario": round(pago_promedio_diario, 2) if pago_promedio_diario else None,
+                "dias_para_saldar": round(dias_para_saldar, 1) if dias_para_saldar else None,
+                "pagos_considerados": len(ultimos),
+                "sin_datos": False,
+            }
+        )
+
+    return resultado

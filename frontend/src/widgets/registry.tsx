@@ -3,6 +3,7 @@ import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YA
 import type {
   CompraDiaria,
   ContabilidadDiaria,
+  EstimacionProveedor,
   PedidoTrello,
   ProveedorResumen,
   VentaDiaria,
@@ -26,11 +27,26 @@ function EstadoCarga({ state }: { state: LoadState<unknown> }) {
   return null
 }
 
-function KpiWidget({ label, value, hint }: { label: string; value: string; hint?: string }) {
+type Tone = 'neutral' | 'good' | 'warning' | 'critical' | 'info'
+
+function KpiWidget({
+  label,
+  value,
+  hint,
+  tone = 'neutral',
+}: {
+  label: string
+  value: string
+  hint?: string
+  tone?: Tone
+}) {
   return (
-    <div className="widget-kpi">
-      <span className="kpi-label">{label}</span>
-      <span className="kpi-value">{value}</span>
+    <div className={`widget-kpi tone-${tone}`}>
+      <span className="kpi-label">
+        {tone !== 'neutral' && <span className={`kpi-tone-dot tone-${tone}`} aria-hidden="true" />}
+        {label}
+      </span>
+      <span className={`kpi-value tone-${tone}`}>{value}</span>
       {hint && <span className="kpi-hint">{hint}</span>}
     </div>
   )
@@ -56,7 +72,7 @@ function SaldoProveedoresWidget() {
   const proveedores = useEndpoint<ProveedorResumen[]>('/compras/resumen-proveedores')
   if (proveedores.status !== 'ok') return <EstadoCarga state={proveedores} />
   const total = proveedores.data.reduce((s, p) => s + parseMoney(p['USD con TC Blue del dia']), 0)
-  return <KpiWidget label="Saldo total a proveedores" value={formatUsd(total)} hint="TC blue del día" />
+  return <KpiWidget label="Saldo total a proveedores" value={formatUsd(total)} hint="TC blue del día" tone="info" />
 }
 
 function RmaPendientesWidget() {
@@ -66,13 +82,13 @@ function RmaPendientesWidget() {
     (s, p) => s + (Number(p['RMA pendiente']) || 0) + (Number(p['NC pendiente']) || 0) + (Number(p['OC Pendientes']) || 0),
     0,
   )
-  return <KpiWidget label="RMA / NC / OC pendientes" value={String(total)} />
+  return <KpiWidget label="RMA / NC / OC pendientes" value={String(total)} tone={total > 0 ? 'warning' : 'good'} />
 }
 
 function PedidosTrelloWidget() {
   const pedidos = useEndpoint<PedidoTrello[]>('/compras/pedidos-trello')
   if (pedidos.status !== 'ok') return <EstadoCarga state={pedidos} />
-  return <KpiWidget label="Pedidos en Trello" value={String(pedidos.data.length)} hint="tarjetas activas" />
+  return <KpiWidget label="Pedidos en Trello" value={String(pedidos.data.length)} hint="tarjetas activas" tone="info" />
 }
 
 function ComprasDiariasWidget() {
@@ -93,7 +109,7 @@ function VentasHoyWidget({ campo, label }: { campo: 'combinado' | 'transferencia
   const v = useEndpoint<VentaDiaria[]>('/ventas/diarias')
   if (v.status !== 'ok') return <EstadoCarga state={v} />
   const hoy = v.data[v.data.length - 1]
-  return <KpiWidget label={label} value={formatArs(hoy[campo])} hint={hoy.fecha} />
+  return <KpiWidget label={label} value={formatArs(hoy[campo])} hint={hoy.fecha} tone="info" />
 }
 
 function VentasAcumuladoMesWidget() {
@@ -101,7 +117,7 @@ function VentasAcumuladoMesWidget() {
   if (v.status !== 'ok') return <EstadoCarga state={v} />
   const mes = v.data.filter((r) => esMismoMes(r.fecha, new Date()))
   const total = mes.reduce((s, r) => s + r.combinado, 0)
-  return <KpiWidget label="Acumulado del mes (ingreso)" value={formatArs(total)} />
+  return <KpiWidget label="Acumulado del mes (ingreso)" value={formatArs(total)} tone="info" />
 }
 
 function VentasVsPromedioWidget() {
@@ -116,6 +132,7 @@ function VentasVsPromedioWidget() {
       label="Hoy vs. promedio histórico"
       value={formatPercent(delta)}
       hint={`promedio diario: ${formatArs(promedio)}`}
+      tone={delta >= 0 ? 'good' : delta > -20 ? 'warning' : 'critical'}
     />
   )
 }
@@ -138,7 +155,8 @@ function ContabilidadHoyWidget({ campo, label }: { campo: 'ingresos' | 'egresos'
   const c = useEndpoint<ContabilidadDiaria[]>('/contabilidad/diario')
   if (c.status !== 'ok') return <EstadoCarga state={c} />
   const hoy = c.data[c.data.length - 1]
-  return <KpiWidget label={label} value={formatArs(hoy[campo])} hint={hoy.fecha} />
+  const tone: Tone = campo === 'egresos' ? 'warning' : campo === 'neto' ? (hoy.neto >= 0 ? 'good' : 'critical') : 'info'
+  return <KpiWidget label={label} value={formatArs(hoy[campo])} hint={hoy.fecha} tone={tone} />
 }
 
 function NetoMesWidget() {
@@ -146,25 +164,48 @@ function NetoMesWidget() {
   if (c.status !== 'ok') return <EstadoCarga state={c} />
   const mes = c.data.filter((r) => esMismoMes(r.fecha, new Date()))
   const total = mes.reduce((s, r) => s + r.neto, 0)
-  return <KpiWidget label="Neto del mes" value={formatArs(total)} />
+  return <KpiWidget label="Neto del mes" value={formatArs(total)} tone={total >= 0 ? 'good' : 'critical'} />
 }
 
 function CuentasPorPagarWidget() {
   const proveedores = useEndpoint<ProveedorResumen[]>('/compras/resumen-proveedores')
+  const estimaciones = useEndpoint<EstimacionProveedor[]>('/compras/estimacion-pago-proveedores')
   if (proveedores.status !== 'ok') return <EstadoCarga state={proveedores} />
   const rows = proveedores.data.filter((p) => p.Proveedor)
+  const porProveedor =
+    estimaciones.status === 'ok' ? new Map(estimaciones.data.map((e) => [e.proveedor, e])) : new Map()
+
   return (
     <div className="widget-chart">
       <span className="widget-title">Cuentas por pagar (proveedores)</span>
       <div className="widget-table-scroll">
         <table className="widget-mini-table">
           <tbody>
-            {rows.map((p) => (
-              <tr key={p.Proveedor}>
-                <td>{p.Proveedor}</td>
-                <td>{p['USD con TC Blue del dia']}</td>
-              </tr>
-            ))}
+            {rows.map((p) => {
+              const est: EstimacionProveedor | undefined = porProveedor.get(p.Proveedor)
+              const dias = est?.dias_para_saldar
+              const dot =
+                !est || est.sin_datos
+                  ? 'neutral'
+                  : est.saldo <= 0
+                    ? 'good'
+                    : dias == null
+                      ? 'neutral'
+                      : dias <= 30
+                        ? 'good'
+                        : dias <= 90
+                          ? 'warning'
+                          : 'critical'
+              return (
+                <tr key={p.Proveedor}>
+                  <td>
+                    {dot !== 'neutral' && <span className={`kpi-tone-dot tone-${dot}`} aria-hidden="true" />}
+                    {p.Proveedor}
+                  </td>
+                  <td>{p['USD con TC Blue del dia']}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

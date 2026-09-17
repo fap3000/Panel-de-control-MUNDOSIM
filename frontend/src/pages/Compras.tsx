@@ -8,14 +8,37 @@ import {
   YAxis,
 } from 'recharts'
 import { KpiCard } from '../components/KpiCard'
-import type { CompraDiaria, PedidoTrello, ProveedorResumen } from '../lib/api'
+import { ProveedorCard } from '../components/ProveedorCard'
+import type { CompraDiaria, EstimacionProveedor, PedidoTrello, ProveedorResumen } from '../lib/api'
 import { formatUsd, parseMoney } from '../lib/format'
 import { useEndpoint } from '../lib/useEndpoint'
 
 export function Compras() {
   const proveedores = useEndpoint<ProveedorResumen[]>('/compras/resumen-proveedores')
+  const estimaciones = useEndpoint<EstimacionProveedor[]>('/compras/estimacion-pago-proveedores')
   const comprasDiarias = useEndpoint<CompraDiaria[]>('/compras/compras-diarias')
   const pedidos = useEndpoint<PedidoTrello[]>('/compras/pedidos-trello')
+
+  const pendientesTotal =
+    proveedores.status === 'ok'
+      ? proveedores.data.reduce(
+          (sum, p) =>
+            sum +
+            (Number(p['RMA pendiente']) || 0) +
+            (Number(p['NC pendiente']) || 0) +
+            (Number(p['OC Pendientes']) || 0),
+          0,
+        )
+      : 0
+
+  const estimacionesPorProveedor =
+    estimaciones.status === 'ok'
+      ? new Map(estimaciones.data.map((e) => [e.proveedor, e]))
+      : new Map<string, EstimacionProveedor>()
+  const saldoMaxUsdAbs =
+    proveedores.status === 'ok'
+      ? Math.max(1, ...proveedores.data.map((p) => Math.abs(parseMoney(p['USD con TC Blue del dia']))))
+      : 1
 
   return (
     <div className="page">
@@ -33,25 +56,18 @@ export function Compras() {
                 ),
               )}
               hint="TC blue del día, todos los proveedores"
+              tone="info"
             />
             <KpiCard
               label="RMA / NC / OC pendientes"
-              value={String(
-                proveedores.data.reduce(
-                  (sum, p) =>
-                    sum +
-                    (Number(p['RMA pendiente']) || 0) +
-                    (Number(p['NC pendiente']) || 0) +
-                    (Number(p['OC Pendientes']) || 0),
-                  0,
-                ),
-              )}
+              value={String(pendientesTotal)}
               hint="suma de las 3 columnas"
+              tone={pendientesTotal > 0 ? 'warning' : 'good'}
             />
           </>
         )}
         {pedidos.status === 'ok' && (
-          <KpiCard label="Pedidos en Trello" value={String(pedidos.data.length)} hint="tarjetas activas" />
+          <KpiCard label="Pedidos en Trello" value={String(pedidos.data.length)} hint="tarjetas activas" tone="info" />
         )}
         {(proveedores.status === 'loading' || pedidos.status === 'loading') && (
           <KpiCard label="Cargando..." value="—" />
@@ -60,36 +76,24 @@ export function Compras() {
 
       <section className="panel">
         <h2>Saldo por proveedor</h2>
+        <p className="hint-row">
+          Verde: se salda en menos de 30 días al ritmo de pago actual · Amarillo: 30-90 días · Rojo: más de 90 días
+          o sin pagos recientes.
+        </p>
         {proveedores.status === 'loading' && <p>Cargando...</p>}
         {proveedores.status === 'error' && <p className="error">Error: {proveedores.message}</p>}
         {proveedores.status === 'ok' && (
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Proveedor</th>
-                  <th>Saldo</th>
-                  <th>USD (TC blue)</th>
-                  <th>RMA</th>
-                  <th>NC</th>
-                  <th>OC</th>
-                </tr>
-              </thead>
-              <tbody>
-                {proveedores.data
-                  .filter((p) => p.Proveedor)
-                  .map((p) => (
-                    <tr key={p.Proveedor}>
-                      <td data-label="Proveedor">{p.Proveedor}</td>
-                      <td data-label="Saldo">{p.Saldo}</td>
-                      <td data-label="USD (TC blue)">{p['USD con TC Blue del dia']}</td>
-                      <td data-label="RMA">{p['RMA pendiente']}</td>
-                      <td data-label="NC">{p['NC pendiente']}</td>
-                      <td data-label="OC">{p['OC Pendientes']}</td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
+          <div className="proveedores-grid">
+            {proveedores.data
+              .filter((p) => p.Proveedor)
+              .map((p) => (
+                <ProveedorCard
+                  key={p.Proveedor}
+                  proveedor={p}
+                  estimacion={estimacionesPorProveedor.get(p.Proveedor)}
+                  saldoMaxUsdAbs={saldoMaxUsdAbs}
+                />
+              ))}
           </div>
         )}
       </section>

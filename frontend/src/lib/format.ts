@@ -29,3 +29,14 @@ export function formatPercent(value: number): string {
   const sign = value > 0 ? '+' : ''
   return `${sign}${value.toFixed(1)}%`
 }
+
+/** Formatea un monto con la misma moneda que un string de referencia (ej. el
+ * "Saldo" de un proveedor, que puede venir en ARS o USD según el proveedor). */
+export function formatNativo(value: number, referencia: string): string {
+  const esUsd = /USD/i.test(referencia)
+  return value.toLocaleString('es-AR', {
+    style: 'currency',
+    currency: esUsd ? 'USD' : 'ARS',
+    maximumFractionDigits: 0,
+  })
+}

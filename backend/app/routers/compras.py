@@ -28,3 +28,11 @@ def pedidos_trello():
         return trello.get_pedidos()
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"No se pudo leer el board de Trello: {exc}") from exc
+
+
+@router.get("/estimacion-pago-proveedores")
+def estimacion_pago_proveedores():
+    try:
+        return sheets.get_estimacion_pago_proveedores(SHEET_PAGOS_PROVEEDORES_ID)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"No se pudo estimar días para saldar: {exc}") from exc

@@ -9,7 +9,8 @@ import {
   YAxis,
 } from 'recharts'
 import { KpiCard } from '../components/KpiCard'
-import type { ContabilidadDiaria, EgresoPorCategoria, ProveedorResumen } from '../lib/api'
+import { ProveedorCard } from '../components/ProveedorCard'
+import type { ContabilidadDiaria, EgresoPorCategoria, EstimacionProveedor, ProveedorResumen } from '../lib/api'
 import { formatArs, formatUsd, parseMoney } from '../lib/format'
 import { useEndpoint } from '../lib/useEndpoint'
 
@@ -31,6 +32,16 @@ export function Contabilidad() {
   const diario = useEndpoint<ContabilidadDiaria[]>('/contabilidad/diario')
   const egresosCategoria = useEndpoint<EgresoPorCategoria[]>('/contabilidad/egresos-por-categoria')
   const proveedores = useEndpoint<ProveedorResumen[]>('/compras/resumen-proveedores')
+  const estimaciones = useEndpoint<EstimacionProveedor[]>('/compras/estimacion-pago-proveedores')
+
+  const estimacionesPorProveedor =
+    estimaciones.status === 'ok'
+      ? new Map(estimaciones.data.map((e) => [e.proveedor, e]))
+      : new Map<string, EstimacionProveedor>()
+  const saldoMaxUsdAbs =
+    proveedores.status === 'ok'
+      ? Math.max(1, ...proveedores.data.map((p) => Math.abs(parseMoney(p['USD con TC Blue del dia']))))
+      : 1
 
   return (
     <div className="page">
@@ -47,15 +58,19 @@ export function Contabilidad() {
         return (
           <>
             <section className="kpis">
-              <KpiCard label="Ingresos hoy" value={formatArs(hoy.ingresos)} hint={hoy.fecha} />
-              <KpiCard label="Egresos hoy" value={formatArs(hoy.egresos)} />
-              <KpiCard label="Neto hoy" value={formatArs(hoy.neto)} />
+              <KpiCard label="Ingresos hoy" value={formatArs(hoy.ingresos)} hint={hoy.fecha} tone="info" />
+              <KpiCard label="Egresos hoy" value={formatArs(hoy.egresos)} tone="warning" />
+              <KpiCard label="Neto hoy" value={formatArs(hoy.neto)} tone={hoy.neto >= 0 ? 'good' : 'critical'} />
             </section>
 
             <section className="kpis">
-              <KpiCard label="Ingresos del mes" value={formatArs(suma(mesActual, 'ingresos'))} />
-              <KpiCard label="Egresos del mes" value={formatArs(suma(mesActual, 'egresos'))} />
-              <KpiCard label="Neto del mes" value={formatArs(suma(mesActual, 'neto'))} />
+              <KpiCard label="Ingresos del mes" value={formatArs(suma(mesActual, 'ingresos'))} tone="info" />
+              <KpiCard label="Egresos del mes" value={formatArs(suma(mesActual, 'egresos'))} tone="warning" />
+              <KpiCard
+                label="Neto del mes"
+                value={formatArs(suma(mesActual, 'neto'))}
+                tone={suma(mesActual, 'neto') >= 0 ? 'good' : 'critical'}
+              />
             </section>
 
             <section className="panel">
@@ -129,27 +144,17 @@ export function Contabilidad() {
               {formatUsd(proveedores.data.reduce((s, p) => s + parseMoney(p['USD con TC Blue del dia']), 0))} (TC
               blue del día)
             </p>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Proveedor</th>
-                    <th>Saldo</th>
-                    <th>USD (TC blue)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {proveedores.data
-                    .filter((p) => p.Proveedor)
-                    .map((p) => (
-                      <tr key={p.Proveedor}>
-                        <td data-label="Proveedor">{p.Proveedor}</td>
-                        <td data-label="Saldo">{p.Saldo}</td>
-                        <td data-label="USD (TC blue)">{p['USD con TC Blue del dia']}</td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
+            <div className="proveedores-grid">
+              {proveedores.data
+                .filter((p) => p.Proveedor)
+                .map((p) => (
+                  <ProveedorCard
+                    key={p.Proveedor}
+                    proveedor={p}
+                    estimacion={estimacionesPorProveedor.get(p.Proveedor)}
+                    saldoMaxUsdAbs={saldoMaxUsdAbs}
+                  />
+                ))}
             </div>
           </>
         )}

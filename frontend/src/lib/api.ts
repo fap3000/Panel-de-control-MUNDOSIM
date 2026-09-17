@@ -63,3 +63,13 @@ export type EgresoPorCategoria = {
   sj: number
   total: number
 }
+
+export type EstimacionProveedor = {
+  proveedor: string
+  saldo: number
+  pago_hoy?: number
+  pago_promedio_diario?: number | null
+  dias_para_saldar?: number | null
+  pagos_considerados?: number
+  sin_datos: boolean
+}
