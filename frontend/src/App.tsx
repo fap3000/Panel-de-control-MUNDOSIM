@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Compras } from './pages/Compras'
 import { Contabilidad } from './pages/Contabilidad'
+import { Panel } from './pages/Panel'
 import { Ventas } from './pages/Ventas'
 import './App.css'
 
@@ -8,6 +9,7 @@ const TABS = [
   { key: 'compras', label: 'Compras', Component: Compras },
   { key: 'ventas', label: 'Ventas', Component: Ventas },
   { key: 'contabilidad', label: 'Contabilidad', Component: Contabilidad },
+  { key: 'panel', label: 'Mi panel', Component: Panel },
 ] as const
 
 function App() {

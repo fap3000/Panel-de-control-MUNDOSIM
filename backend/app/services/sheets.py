@@ -1,4 +1,5 @@
 import re
+import time
 from collections import defaultdict
 from datetime import datetime
 
@@ -21,6 +22,25 @@ def _get_client():
     return _client
 
 
+# Cache en memoria de get_all_values() por hoja, con TTL corto. Varios widgets del
+# panel piden el mismo sheet en la misma carga de página — sin esto se pisaba la
+# cuota de lectura de Sheets (429/60 requests por minuto) con solo un par de
+# recargas seguidas.
+_VALUES_CACHE: dict[tuple[str, str], tuple[float, list[list[str]]]] = {}
+_CACHE_TTL_SECONDS = 90
+
+
+def _get_values_cached(sheet_id: str, worksheet_name: str) -> list[list[str]]:
+    key = (sheet_id, worksheet_name)
+    cached = _VALUES_CACHE.get(key)
+    now = time.monotonic()
+    if cached and now - cached[0] < _CACHE_TTL_SECONDS:
+        return cached[1]
+    values = _get_client().open_by_key(sheet_id).worksheet(worksheet_name).get_all_values()
+    _VALUES_CACHE[key] = (now, values)
+    return values
+
+
 def _rows_from_values(values: list[list[str]], header_row: int = 0) -> list[dict]:
     """Arma una lista de dicts a mano, tolerando encabezados vacíos o repetidos
     (get_all_records de gspread falla si hay columnas sin nombre)."""
@@ -36,16 +56,12 @@ def _rows_from_values(values: list[list[str]], header_row: int = 0) -> list[dict
 
 def get_resumen_proveedores(sheet_id: str) -> list[dict]:
     """Lee la hoja RESUMEN de PAGOS PROVEEDORES (encabezados en la fila 2)."""
-    sh = _get_client().open_by_key(sheet_id)
-    ws = sh.worksheet("RESUMEN")
-    return _rows_from_values(ws.get_all_values(), header_row=1)
+    return _rows_from_values(_get_values_cached(sheet_id, "RESUMEN"), header_row=1)
 
 
 def get_registro_diario(sheet_id: str) -> list[dict]:
     """Lee la hoja 'Registro Diario U$' del Consolidado Mdz y SJ."""
-    sh = _get_client().open_by_key(sheet_id)
-    ws = sh.worksheet("Registro Diario U$")
-    return _rows_from_values(ws.get_all_values())
+    return _rows_from_values(_get_values_cached(sheet_id, "Registro Diario U$"))
 
 
 _FECHA_MIN = datetime(2020, 1, 1)
@@ -98,12 +114,10 @@ def get_ventas_diarias(sheet_id: str) -> list[dict]:
     """Ventas diarias por sucursal, separando transferencias de efectivo, replicando
     las fórmulas de 'Mdz/SJ Resumen $ + Transferencias' y 'CONSOLIDADO TOTAL $ +
     Transferencias' pero sobre el histórico completo en vez de un solo día a mano."""
-    sh = _get_client().open_by_key(sheet_id)
-
-    mdz_transf = _sum_by_date(sh.worksheet("Mdz Transferencias").get_all_values(), date_col=0, amount_cols=[2, 4])
-    sj_transf = _sum_by_date(sh.worksheet("SJ Transferencias").get_all_values(), date_col=1, amount_cols=[4, 5])
-    mdz_caja = _sum_by_date(sh.worksheet("Mdz $").get_all_values(), date_col=1, amount_cols=[3])
-    sj_caja = _sum_by_date(sh.worksheet("SJ $").get_all_values(), date_col=1, amount_cols=[3])
+    mdz_transf = _sum_by_date(_get_values_cached(sheet_id, "Mdz Transferencias"), date_col=0, amount_cols=[2, 4])
+    sj_transf = _sum_by_date(_get_values_cached(sheet_id, "SJ Transferencias"), date_col=1, amount_cols=[4, 5])
+    mdz_caja = _sum_by_date(_get_values_cached(sheet_id, "Mdz $"), date_col=1, amount_cols=[3])
+    sj_caja = _sum_by_date(_get_values_cached(sheet_id, "SJ $"), date_col=1, amount_cols=[3])
 
     fechas = _sorted_dates(mdz_transf, sj_transf, mdz_caja, sj_caja)
     result = []
@@ -164,17 +178,15 @@ def get_transferencias_por_cuenta(sheet_id: str, desde: datetime, hasta: datetim
     """Transferencias recibidas agrupadas por cuenta/banco (Mdz + SJ combinados) en un
     rango de fechas. Sirve para cruzar contra los saldos de PAGOS PROVEEDORES, ya que
     varias cuentas coinciden con proveedores (ej. 'THE ONE', 'SANTANDER')."""
-    sh = _get_client().open_by_key(sheet_id)
-
     mdz = _sum_by_account(
-        sh.worksheet("Mdz Transferencias").get_all_values(),
+        _get_values_cached(sheet_id, "Mdz Transferencias"),
         date_col=0,
         pairs=[(3, 2), (5, 4)],
         desde=desde,
         hasta=hasta,
     )
     sj = _sum_by_account(
-        sh.worksheet("SJ Transferencias").get_all_values(),
+        _get_values_cached(sheet_id, "SJ Transferencias"),
         date_col=1,
         pairs=[(3, 4), (3, 5)],
         desde=desde,
@@ -229,11 +241,10 @@ def _categorizar_motivo(motivo: str) -> str:
 
 def get_egresos_diarios(sheet_id: str) -> list[dict]:
     """Egresos diarios por sucursal (Gasto + Salida de caja)."""
-    sh = _get_client().open_by_key(sheet_id)
     totales = {}
     for hoja, cols in _LIBROS_CAJA.items():
         totales[hoja] = _sum_by_date(
-            sh.worksheet(hoja).get_all_values(), date_col=cols["date"], amount_cols=[cols["gasto"], cols["salida"]]
+            _get_values_cached(sheet_id, hoja), date_col=cols["date"], amount_cols=[cols["gasto"], cols["salida"]]
         )
 
     fechas = _sorted_dates(*totales.values())
@@ -252,12 +263,11 @@ def get_egresos_por_categoria(sheet_id: str, desde: datetime, hasta: datetime) -
     """Egresos agrupados por categoría (heurística sobre 'Motivo'), separados por
     sucursal, en un rango de fechas. Incluye 'Sueldos' como una categoría más, ya
     separada por local."""
-    sh = _get_client().open_by_key(sheet_id)
     por_categoria: dict[str, dict[str, float]] = defaultdict(lambda: {"mdz": 0.0, "sj": 0.0})
 
     branch_key = {"Mdz $": "mdz", "SJ $": "sj"}
     for hoja, cols in _LIBROS_CAJA.items():
-        values = sh.worksheet(hoja).get_all_values()
+        values = _get_values_cached(sheet_id, hoja)
         key = branch_key[hoja]
         for row in values[1:]:
             date_col = cols["date"]
