@@ -31,3 +31,21 @@ export type PedidoTrello = {
   ultima_actividad: string | null
   etiquetas: string[]
 }
+
+export type VentaDiaria = {
+  fecha: string
+  mdz_transferencias: number
+  mdz_efectivo: number
+  sj_transferencias: number
+  sj_efectivo: number
+  mdz: number
+  sj: number
+  transferencias: number
+  efectivo: number
+  combinado: number
+}
+
+export type TransferenciaPorCuenta = {
+  cuenta: string
+  total: number
+}

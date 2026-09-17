@@ -1,4 +1,3 @@
-import { useEffect, useState } from 'react'
 import {
   CartesianGrid,
   Line,
@@ -9,40 +8,9 @@ import {
   YAxis,
 } from 'recharts'
 import { KpiCard } from '../components/KpiCard'
-import { api, type CompraDiaria, type PedidoTrello, type ProveedorResumen } from '../lib/api'
+import type { CompraDiaria, PedidoTrello, ProveedorResumen } from '../lib/api'
 import { formatUsd, parseMoney } from '../lib/format'
-
-type LoadState<T> =
-  | { status: 'loading' }
-  | { status: 'error'; message: string }
-  | { status: 'ok'; data: T }
-
-function useEndpoint<T>(path: string): LoadState<T> {
-  const [state, setState] = useState<LoadState<T>>({ status: 'loading' })
-
-  useEffect(() => {
-    let cancelled = false
-    setState({ status: 'loading' })
-    api
-      .get<T>(path)
-      .then((res) => {
-        if (!cancelled) setState({ status: 'ok', data: res.data })
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setState({
-            status: 'error',
-            message: err.response?.data?.detail ?? err.message ?? 'Error desconocido',
-          })
-        }
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [path])
-
-  return state
-}
+import { useEndpoint } from '../lib/useEndpoint'
 
 export function Compras() {
   const proveedores = useEndpoint<ProveedorResumen[]>('/compras/resumen-proveedores')

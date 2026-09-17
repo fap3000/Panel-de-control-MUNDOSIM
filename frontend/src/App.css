@@ -9,6 +9,35 @@ body {
   font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
+.tabs {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 16px 20px 0;
+  display: flex;
+  gap: 8px;
+}
+
+.tab {
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 14px;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: 8px 8px 0 0;
+  cursor: pointer;
+}
+
+.tab:hover {
+  background: #e5e7eb;
+}
+
+.tab.active {
+  background: #fff;
+  color: #1f2937;
+  border-bottom: 2px solid #2563eb;
+}
+
 .page {
   max-width: 1080px;
   margin: 0 auto;
@@ -66,6 +95,12 @@ body {
   font-size: 15px;
   margin: 0 0 12px;
   color: #374151;
+}
+
+.hint-row {
+  font-size: 12px;
+  color: #6b7280;
+  margin: 10px 0 0;
 }
 
 table {

@@ -16,3 +16,16 @@ export function formatUsd(value: number): string {
     maximumFractionDigits: 0,
   })
 }
+
+export function formatArs(value: number): string {
+  return value.toLocaleString('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    maximumFractionDigits: 0,
+  })
+}
+
+export function formatPercent(value: number): string {
+  const sign = value > 0 ? '+' : ''
+  return `${sign}${value.toFixed(1)}%`
+}
