@@ -62,10 +62,17 @@ export function Contabilidad() {
               <ResponsiveContainer width="100%" height={320}>
                 <LineChart data={data.slice(-45)}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="fecha" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
+                  <XAxis
+                    dataKey="fecha"
+                    tick={{ fontSize: 10 }}
+                    interval="preserveStartEnd"
+                    angle={-35}
+                    textAnchor="end"
+                    height={50}
+                  />
+                  <YAxis tick={{ fontSize: 11 }} width={50} />
                   <Tooltip formatter={(value: number) => formatArs(value)} />
-                  <Legend />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Line type="monotone" dataKey="ingresos" name="Ingresos" stroke="#16a34a" strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="egresos" name="Egresos" stroke="#dc2626" strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="neto" name="Neto" stroke="#0f172a" strokeWidth={2} dot={false} />
@@ -85,26 +92,28 @@ export function Contabilidad() {
         {egresosCategoria.status === 'loading' && <p>Cargando...</p>}
         {egresosCategoria.status === 'error' && <p className="error">Error: {egresosCategoria.message}</p>}
         {egresosCategoria.status === 'ok' && (
-          <table>
-            <thead>
-              <tr>
-                <th>Categoría</th>
-                <th>Mendoza</th>
-                <th>San Juan</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              {egresosCategoria.data.map((row) => (
-                <tr key={row.categoria}>
-                  <td>{row.categoria}</td>
-                  <td>{formatArs(row.mdz)}</td>
-                  <td>{formatArs(row.sj)}</td>
-                  <td>{formatArs(row.total)}</td>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Categoría</th>
+                  <th>Mendoza</th>
+                  <th>San Juan</th>
+                  <th>Total</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {egresosCategoria.data.map((row) => (
+                  <tr key={row.categoria}>
+                    <td data-label="Categoría">{row.categoria}</td>
+                    <td data-label="Mendoza">{formatArs(row.mdz)}</td>
+                    <td data-label="San Juan">{formatArs(row.sj)}</td>
+                    <td data-label="Total">{formatArs(row.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </div>

@@ -88,10 +88,17 @@ export function Ventas() {
               <ResponsiveContainer width="100%" height={320}>
                 <LineChart data={data.slice(-45)}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="fecha" tick={{ fontSize: 10 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
+                  <XAxis
+                    dataKey="fecha"
+                    tick={{ fontSize: 10 }}
+                    interval="preserveStartEnd"
+                    angle={-35}
+                    textAnchor="end"
+                    height={50}
+                  />
+                  <YAxis tick={{ fontSize: 11 }} width={50} />
                   <Tooltip formatter={(value: number) => formatArs(value)} />
-                  <Legend />
+                  <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Line type="monotone" dataKey="mdz" name="Mendoza" stroke="#2563eb" strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="sj" name="San Juan" stroke="#16a34a" strokeWidth={2} dot={false} />
                   <Line
@@ -124,22 +131,24 @@ export function Ventas() {
         {porCuenta.status === 'loading' && <p>Cargando...</p>}
         {porCuenta.status === 'error' && <p className="error">Error: {porCuenta.message}</p>}
         {porCuenta.status === 'ok' && (
-          <table>
-            <thead>
-              <tr>
-                <th>Cuenta</th>
-                <th>Total recibido</th>
-              </tr>
-            </thead>
-            <tbody>
-              {porCuenta.data.map((row) => (
-                <tr key={row.cuenta}>
-                  <td>{row.cuenta}</td>
-                  <td>{formatArs(row.total)}</td>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Cuenta</th>
+                  <th>Total recibido</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {porCuenta.data.map((row) => (
+                  <tr key={row.cuenta}>
+                    <td data-label="Cuenta">{row.cuenta}</td>
+                    <td data-label="Total recibido">{formatArs(row.total)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
     </div>

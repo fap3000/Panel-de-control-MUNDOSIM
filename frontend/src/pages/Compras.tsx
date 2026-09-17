@@ -63,32 +63,34 @@ export function Compras() {
         {proveedores.status === 'loading' && <p>Cargando...</p>}
         {proveedores.status === 'error' && <p className="error">Error: {proveedores.message}</p>}
         {proveedores.status === 'ok' && (
-          <table>
-            <thead>
-              <tr>
-                <th>Proveedor</th>
-                <th>Saldo</th>
-                <th>USD (TC blue)</th>
-                <th>RMA</th>
-                <th>NC</th>
-                <th>OC</th>
-              </tr>
-            </thead>
-            <tbody>
-              {proveedores.data
-                .filter((p) => p.Proveedor)
-                .map((p) => (
-                  <tr key={p.Proveedor}>
-                    <td>{p.Proveedor}</td>
-                    <td>{p.Saldo}</td>
-                    <td>{p['USD con TC Blue del dia']}</td>
-                    <td>{p['RMA pendiente']}</td>
-                    <td>{p['NC pendiente']}</td>
-                    <td>{p['OC Pendientes']}</td>
-                  </tr>
-                ))}
-            </tbody>
-          </table>
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Proveedor</th>
+                  <th>Saldo</th>
+                  <th>USD (TC blue)</th>
+                  <th>RMA</th>
+                  <th>NC</th>
+                  <th>OC</th>
+                </tr>
+              </thead>
+              <tbody>
+                {proveedores.data
+                  .filter((p) => p.Proveedor)
+                  .map((p) => (
+                    <tr key={p.Proveedor}>
+                      <td data-label="Proveedor">{p.Proveedor}</td>
+                      <td data-label="Saldo">{p.Saldo}</td>
+                      <td data-label="USD (TC blue)">{p['USD con TC Blue del dia']}</td>
+                      <td data-label="RMA">{p['RMA pendiente']}</td>
+                      <td data-label="NC">{p['NC pendiente']}</td>
+                      <td data-label="OC">{p['OC Pendientes']}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </section>
 
@@ -105,8 +107,15 @@ export function Compras() {
               }))}
             >
               <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="fecha" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
+              <XAxis
+                dataKey="fecha"
+                tick={{ fontSize: 10 }}
+                interval="preserveStartEnd"
+                angle={-35}
+                textAnchor="end"
+                height={50}
+              />
+              <YAxis tick={{ fontSize: 11 }} width={50} />
               <Tooltip />
               <Line type="monotone" dataKey="compras" stroke="#2563eb" strokeWidth={2} dot={false} />
             </LineChart>
