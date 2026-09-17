@@ -12,6 +12,7 @@ import { KpiCard } from '../components/KpiCard'
 import { ProveedorCard } from '../components/ProveedorCard'
 import type { ContabilidadDiaria, EgresoPorCategoria, EstimacionProveedor, ProveedorResumen } from '../lib/api'
 import { formatArs, formatUsd, parseMoney } from '../lib/format'
+import { PALETTE } from '../lib/palette'
 import { useEndpoint } from '../lib/useEndpoint'
 
 function parseFechaDDMMYYYY(fecha: string): Date {
@@ -77,21 +78,22 @@ export function Contabilidad() {
               <h2>Ingresos vs. egresos (últimos 45 días)</h2>
               <ResponsiveContainer width="100%" height={320}>
                 <LineChart data={data.slice(-45)}>
-                  <CartesianGrid strokeDasharray="3 3" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={PALETTE.ink.gridline} />
                   <XAxis
                     dataKey="fecha"
-                    tick={{ fontSize: 10 }}
+                    tick={{ fontSize: 10, fill: PALETTE.ink.muted }}
+                    stroke={PALETTE.ink.baseline}
                     interval="preserveStartEnd"
                     angle={-35}
                     textAnchor="end"
                     height={50}
                   />
-                  <YAxis tick={{ fontSize: 11 }} width={50} />
+                  <YAxis tick={{ fontSize: 11, fill: PALETTE.ink.muted }} stroke={PALETTE.ink.baseline} width={50} />
                   <Tooltip formatter={(value: number) => formatArs(value)} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Line type="monotone" dataKey="ingresos" name="Ingresos" stroke="#16a34a" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="egresos" name="Egresos" stroke="#dc2626" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="neto" name="Neto" stroke="#0f172a" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="ingresos" name="Ingresos" stroke={PALETTE.categorical.blue} strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="egresos" name="Egresos" stroke={PALETTE.categorical.orange} strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="neto" name="Neto" stroke={PALETTE.ink.primary} strokeWidth={2} dot={false} />
                 </LineChart>
               </ResponsiveContainer>
             </section>

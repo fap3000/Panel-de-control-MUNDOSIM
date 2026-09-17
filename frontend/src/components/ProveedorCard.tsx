@@ -1,7 +1,6 @@
 import type { EstimacionProveedor, ProveedorResumen } from '../lib/api'
 import { formatNativo, parseMoney } from '../lib/format'
-
-type Tone = 'good' | 'warning' | 'critical' | 'neutral'
+import { type ProveedorTone as Tone, toneParaDiasParaSaldar } from '../lib/proveedorTone'
 
 type Props = {
   proveedor: ProveedorResumen
@@ -18,6 +17,7 @@ export function ProveedorCard({ proveedor, estimacion, saldoMaxUsdAbs }: Props) 
 
   let tone: Tone = 'neutral'
   let detalle: string
+  let detalleRitmo: string | null = null
 
   if (!estimacion || estimacion.sin_datos) {
     detalle = 'Sin datos suficientes para estimar el ritmo de pago.'
@@ -28,10 +28,15 @@ export function ProveedorCard({ proveedor, estimacion, saldoMaxUsdAbs }: Props) 
     detalle = 'Sin pagos recientes registrados para estimar.'
   } else {
     const dias = estimacion.dias_para_saldar
-    tone = dias <= 30 ? 'good' : dias <= 90 ? 'warning' : 'critical'
+    tone = toneParaDiasParaSaldar(dias)
     const pagoHoy = formatNativo(estimacion.pago_hoy ?? 0, proveedor.Saldo)
-    const pagoProm = formatNativo(estimacion.pago_promedio_diario ?? 0, proveedor.Saldo)
-    detalle = `Pago hoy: ${pagoHoy} · Promedio: ${pagoProm}/día · Días para saldar: ~${Math.round(dias)}`
+    const pagoPorPago = formatNativo(estimacion.pago_promedio_por_pago ?? 0, proveedor.Saldo)
+    const intervalo = estimacion.intervalo_promedio_dias
+    detalle = `Pago hoy: ${pagoHoy} · Promedio: ${pagoPorPago} cada ~${intervalo ? intervalo.toFixed(1) : '?'} días`
+    detalleRitmo =
+      estimacion.pagos_para_saldar != null
+        ? `Faltarían ~${estimacion.pagos_para_saldar} pagos (~${Math.round(dias)} días) para saldar, al ritmo actual`
+        : null
   }
 
   const pendientes =
@@ -49,6 +54,7 @@ export function ProveedorCard({ proveedor, estimacion, saldoMaxUsdAbs }: Props) 
         <div className={`proveedor-bar-fill tone-${tone}`} style={{ width: `${barPercent}%` }} />
       </div>
       <p className="proveedor-detalle">{detalle}</p>
+      {detalleRitmo && <p className="proveedor-detalle">{detalleRitmo}</p>}
       {pendientes > 0 && (
         <p className="proveedor-detalle">
           RMA: {proveedor['RMA pendiente'] || 0} · NC: {proveedor['NC pendiente'] || 0} · OC:{' '}

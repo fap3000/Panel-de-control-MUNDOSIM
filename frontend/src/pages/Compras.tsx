@@ -11,6 +11,7 @@ import { KpiCard } from '../components/KpiCard'
 import { ProveedorCard } from '../components/ProveedorCard'
 import type { CompraDiaria, EstimacionProveedor, PedidoTrello, ProveedorResumen } from '../lib/api'
 import { formatUsd, parseMoney } from '../lib/format'
+import { PALETTE } from '../lib/palette'
 import { useEndpoint } from '../lib/useEndpoint'
 
 export function Compras() {
@@ -77,7 +78,7 @@ export function Compras() {
       <section className="panel">
         <h2>Saldo por proveedor</h2>
         <p className="hint-row">
-          Verde: se salda en menos de 30 días al ritmo de pago actual · Amarillo: 30-90 días · Rojo: más de 90 días
+          Verde: se salda en 45 días o menos al ritmo de pago actual · Amarillo: 46-70 días · Rojo: más de 70 días
           o sin pagos recientes.
         </p>
         {proveedores.status === 'loading' && <p>Cargando...</p>}
@@ -110,18 +111,19 @@ export function Compras() {
                 compras: parseMoney(row['COMPRAS (U$)']),
               }))}
             >
-              <CartesianGrid strokeDasharray="3 3" />
+              <CartesianGrid strokeDasharray="3 3" stroke={PALETTE.ink.gridline} />
               <XAxis
                 dataKey="fecha"
-                tick={{ fontSize: 10 }}
+                tick={{ fontSize: 10, fill: PALETTE.ink.muted }}
+                stroke={PALETTE.ink.baseline}
                 interval="preserveStartEnd"
                 angle={-35}
                 textAnchor="end"
                 height={50}
               />
-              <YAxis tick={{ fontSize: 11 }} width={50} />
+              <YAxis tick={{ fontSize: 11, fill: PALETTE.ink.muted }} stroke={PALETTE.ink.baseline} width={50} />
               <Tooltip />
-              <Line type="monotone" dataKey="compras" stroke="#2563eb" strokeWidth={2} dot={false} />
+              <Line type="monotone" dataKey="compras" stroke={PALETTE.categorical.blue} strokeWidth={2} dot={false} />
             </LineChart>
           </ResponsiveContainer>
         )}

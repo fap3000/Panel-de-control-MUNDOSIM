@@ -1,3 +1,4 @@
+import math
 import re
 import time
 from collections import defaultdict
@@ -406,12 +407,24 @@ def get_estimacion_pago_proveedores(sheet_id_pagos: str) -> list[dict]:
         ultimos = pagos[-_ULTIMOS_N_PAGOS:]
         dias_para_saldar = None
         pago_promedio_diario = None
+        pago_promedio_por_pago = None
+        intervalo_promedio_dias = None
+        pagos_para_saldar = None
         if len(ultimos) >= 2 and saldo > 0:
             total_ultimos = sum(p["monto"] for p in ultimos)
             dias_span = max((ultimos[-1]["fecha"] - ultimos[0]["fecha"]).days, 1)
             pago_promedio_diario = total_ultimos / dias_span
             if pago_promedio_diario > 0:
                 dias_para_saldar = saldo / pago_promedio_diario
+
+            # Complementa la tasa diaria: si el proveedor cobra poco frecuente
+            # (ej. 1 pago por semana), dividir por días de calendario da un
+            # número chico que no se siente representativo — "cuántos pagos
+            # como los últimos harían falta" es más intuitivo en esos casos.
+            pago_promedio_por_pago = total_ultimos / len(ultimos)
+            intervalo_promedio_dias = dias_span / (len(ultimos) - 1)
+            if pago_promedio_por_pago > 0:
+                pagos_para_saldar = math.ceil(saldo / pago_promedio_por_pago)
 
         resultado.append(
             {
@@ -420,6 +433,9 @@ def get_estimacion_pago_proveedores(sheet_id_pagos: str) -> list[dict]:
                 "pago_hoy": round(pago_hoy, 2),
                 "pago_promedio_diario": round(pago_promedio_diario, 2) if pago_promedio_diario else None,
                 "dias_para_saldar": round(dias_para_saldar, 1) if dias_para_saldar else None,
+                "pago_promedio_por_pago": round(pago_promedio_por_pago, 2) if pago_promedio_por_pago else None,
+                "intervalo_promedio_dias": round(intervalo_promedio_dias, 1) if intervalo_promedio_dias else None,
+                "pagos_para_saldar": pagos_para_saldar,
                 "pagos_considerados": len(ultimos),
                 "sin_datos": False,
             }

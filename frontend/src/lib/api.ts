@@ -70,6 +70,9 @@ export type EstimacionProveedor = {
   pago_hoy?: number
   pago_promedio_diario?: number | null
   dias_para_saldar?: number | null
+  pago_promedio_por_pago?: number | null
+  intervalo_promedio_dias?: number | null
+  pagos_para_saldar?: number | null
   pagos_considerados?: number
   sin_datos: boolean
 }

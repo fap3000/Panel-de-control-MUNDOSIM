@@ -11,6 +11,8 @@
   --status-critical-bg: #fbe8e8;
   --status-info: #2a78d6;
   --status-info-bg: #e9f1fc;
+  --status-info-dark: #1c5cab;
+  --status-info-border: #9ec5f4;
 }
 
 *,
@@ -67,7 +69,7 @@ body {
 .tab.active {
   background: #fff;
   color: #1f2937;
-  border-bottom: 2px solid #2563eb;
+  border-bottom: 2px solid var(--status-info);
 }
 
 .page {
@@ -351,8 +353,8 @@ th {
 
 .pedido-lista {
   display: inline-block;
-  background: #eef2ff;
-  color: #4338ca;
+  background: var(--status-info-bg);
+  color: var(--status-info);
   font-size: 11px;
   padding: 1px 6px;
   border-radius: 4px;
@@ -423,7 +425,7 @@ th {
 
 .btn-primary {
   border: none;
-  background: #2563eb;
+  background: var(--status-info);
   color: #fff;
   font-size: 13px;
   font-weight: 500;
@@ -434,7 +436,7 @@ th {
 }
 
 .btn-primary:hover {
-  background: #1d4ed8;
+  background: var(--status-info-dark);
 }
 
 .panel-grid {
@@ -452,7 +454,7 @@ th {
 }
 
 .widget-card > .react-grid-placeholder {
-  background: #2563eb;
+  background: var(--status-info);
 }
 
 .widget-remove {
@@ -594,8 +596,8 @@ th {
 }
 
 .picker-item:hover {
-  background: #eef2ff;
-  border-color: #c7d2fe;
+  background: var(--status-info-bg);
+  border-color: var(--status-info-border);
 }
 
 .picker-close {

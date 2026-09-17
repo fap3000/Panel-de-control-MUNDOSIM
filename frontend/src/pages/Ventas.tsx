@@ -13,6 +13,7 @@ import { KpiCard } from '../components/KpiCard'
 import type { TransferenciaPorCuenta, VentaDiaria } from '../lib/api'
 import { diasHabilesDelMes } from '../lib/feriados'
 import { formatArs, formatPercent } from '../lib/format'
+import { PALETTE } from '../lib/palette'
 import { useEndpoint } from '../lib/useEndpoint'
 
 function parseFechaDDMMYYYY(fecha: string): Date {
@@ -90,33 +91,34 @@ export function Ventas() {
               <h2>Ventas diarias por sucursal (últimos 45 días)</h2>
               <ResponsiveContainer width="100%" height={320}>
                 <LineChart data={data.slice(-45)}>
-                  <CartesianGrid strokeDasharray="3 3" />
+                  <CartesianGrid strokeDasharray="3 3" stroke={PALETTE.ink.gridline} />
                   <XAxis
                     dataKey="fecha"
-                    tick={{ fontSize: 10 }}
+                    tick={{ fontSize: 10, fill: PALETTE.ink.muted }}
+                    stroke={PALETTE.ink.baseline}
                     interval="preserveStartEnd"
                     angle={-35}
                     textAnchor="end"
                     height={50}
                   />
-                  <YAxis tick={{ fontSize: 11 }} width={50} />
+                  <YAxis tick={{ fontSize: 11, fill: PALETTE.ink.muted }} stroke={PALETTE.ink.baseline} width={50} />
                   <Tooltip formatter={(value: number) => formatArs(value)} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
-                  <Line type="monotone" dataKey="mdz" name="Mendoza" stroke="#2563eb" strokeWidth={2} dot={false} />
-                  <Line type="monotone" dataKey="sj" name="San Juan" stroke="#16a34a" strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="mdz" name="Mendoza" stroke={PALETTE.categorical.blue} strokeWidth={2} dot={false} />
+                  <Line type="monotone" dataKey="sj" name="San Juan" stroke={PALETTE.categorical.orange} strokeWidth={2} dot={false} />
                   <Line
                     type="monotone"
                     dataKey="combinado"
                     name="Combinado"
-                    stroke="#0f172a"
+                    stroke={PALETTE.ink.primary}
                     strokeWidth={2}
                     dot={false}
                   />
                   <ReferenceLine
                     y={promCombinado}
-                    stroke="#94a3b8"
+                    stroke={PALETTE.ink.muted}
                     strokeDasharray="4 4"
-                    label={{ value: 'promedio histórico', position: 'insideTopRight', fontSize: 10 }}
+                    label={{ value: 'promedio histórico', position: 'insideTopRight', fontSize: 10, fill: PALETTE.ink.muted }}
                   />
                 </LineChart>
               </ResponsiveContainer>

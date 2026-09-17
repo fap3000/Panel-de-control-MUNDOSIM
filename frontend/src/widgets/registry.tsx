@@ -9,6 +9,8 @@ import type {
   VentaDiaria,
 } from '../lib/api'
 import { formatArs, formatPercent, formatUsd, parseMoney } from '../lib/format'
+import { PALETTE } from '../lib/palette'
+import { toneParaDiasParaSaldar } from '../lib/proveedorTone'
 import { type LoadState, useEndpoint } from '../lib/useEndpoint'
 
 function parseFechaDDMMYYYY(fecha: string): Date {
@@ -56,9 +58,9 @@ function MiniChart({ data, dataKey, color }: { data: { fecha: string; valor: num
   return (
     <ResponsiveContainer width="100%" height="100%">
       <LineChart data={data}>
-        <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey="fecha" tick={{ fontSize: 9 }} interval="preserveStartEnd" />
-        <YAxis tick={{ fontSize: 9 }} width={42} />
+        <CartesianGrid strokeDasharray="3 3" stroke={PALETTE.ink.gridline} />
+        <XAxis dataKey="fecha" tick={{ fontSize: 9, fill: PALETTE.ink.muted }} stroke={PALETTE.ink.baseline} interval="preserveStartEnd" />
+        <YAxis tick={{ fontSize: 9, fill: PALETTE.ink.muted }} stroke={PALETTE.ink.baseline} width={42} />
         <Tooltip />
         <Line type="monotone" dataKey={dataKey} stroke={color} strokeWidth={2} dot={false} />
       </LineChart>
@@ -98,7 +100,7 @@ function ComprasDiariasWidget() {
   return (
     <div className="widget-chart">
       <span className="widget-title">Compras diarias (USD)</span>
-      <MiniChart data={rows} dataKey="valor" color="#2563eb" />
+      <MiniChart data={rows} dataKey="valor" color={PALETTE.categorical.blue} />
     </div>
   )
 }
@@ -144,7 +146,7 @@ function VentasDiariasWidget() {
   return (
     <div className="widget-chart">
       <span className="widget-title">Ventas diarias combinadas</span>
-      <MiniChart data={rows} dataKey="valor" color="#0f172a" />
+      <MiniChart data={rows} dataKey="valor" color={PALETTE.categorical.blue} />
     </div>
   )
 }
@@ -185,17 +187,7 @@ function CuentasPorPagarWidget() {
               const est: EstimacionProveedor | undefined = porProveedor.get(p.Proveedor)
               const dias = est?.dias_para_saldar
               const dot =
-                !est || est.sin_datos
-                  ? 'neutral'
-                  : est.saldo <= 0
-                    ? 'good'
-                    : dias == null
-                      ? 'neutral'
-                      : dias <= 30
-                        ? 'good'
-                        : dias <= 90
-                          ? 'warning'
-                          : 'critical'
+                !est || est.sin_datos ? 'neutral' : est.saldo <= 0 ? 'good' : dias == null ? 'neutral' : toneParaDiasParaSaldar(dias)
               return (
                 <tr key={p.Proveedor}>
                   <td>
@@ -220,7 +212,7 @@ function IngresosEgresosWidget() {
   return (
     <div className="widget-chart">
       <span className="widget-title">Neto diario (ingresos − egresos)</span>
-      <MiniChart data={rows} dataKey="valor" color="#16a34a" />
+      <MiniChart data={rows} dataKey="valor" color={PALETTE.categorical.blue} />
     </div>
   )
 }
