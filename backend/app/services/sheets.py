@@ -8,6 +8,7 @@ import gspread
 from google.oauth2.service_account import Credentials
 
 from app.config import GOOGLE_SERVICE_ACCOUNT_FILE
+from app.services import supabase_cache
 from app.services.parsing import parse_amount
 
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets.readonly"]
@@ -23,22 +24,32 @@ def _get_client():
     return _client
 
 
-# Cache en memoria de get_all_values() por hoja, con TTL corto. Varios widgets del
-# panel piden el mismo sheet en la misma carga de página — sin esto se pisaba la
-# cuota de lectura de Sheets (429/60 requests por minuto) con solo un par de
-# recargas seguidas.
+# Dos capas de cache para get_all_values() por hoja:
+# 1) memoria del proceso, TTL cortito — evita pegarle a Supabase por cada
+#    widget que pide la misma hoja en la misma carga de página.
+# 2) Supabase (supabase_cache), TTL más largo — sobrevive a un reinicio del
+#    backend, a diferencia de la memoria. Sin esto se pisaba la cuota de
+#    lectura de Sheets (429/60 requests por minuto) con solo un par de
+#    recargas seguidas, y cada reinicio volvía a empezar de cero.
 _VALUES_CACHE: dict[tuple[str, str], tuple[float, list[list[str]]]] = {}
-_CACHE_TTL_SECONDS = 90
+_MEMORY_TTL_SECONDS = 30
 
 
 def _get_values_cached(sheet_id: str, worksheet_name: str) -> list[list[str]]:
     key = (sheet_id, worksheet_name)
     cached = _VALUES_CACHE.get(key)
     now = time.monotonic()
-    if cached and now - cached[0] < _CACHE_TTL_SECONDS:
+    if cached and now - cached[0] < _MEMORY_TTL_SECONDS:
         return cached[1]
+
+    remoto = supabase_cache.get(sheet_id, worksheet_name)
+    if remoto is not None:
+        _VALUES_CACHE[key] = (now, remoto)
+        return remoto
+
     values = _get_client().open_by_key(sheet_id).worksheet(worksheet_name).get_all_values()
     _VALUES_CACHE[key] = (now, values)
+    supabase_cache.set(sheet_id, worksheet_name, values)
     return values
 
 

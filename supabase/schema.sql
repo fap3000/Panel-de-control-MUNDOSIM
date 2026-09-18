@@ -34,3 +34,31 @@ create policy "anon puede borrar panel_widgets"
   on panel_widgets for delete
   to anon
   using (true);
+
+-- Cache de las hojas de Sheets: reemplaza la cache en memoria del backend
+-- (que se perdía en cada reinicio). Guarda los valores crudos de cada hoja
+-- (get_all_values) tal cual los procesa backend/app/services/sheets.py.
+create table if not exists sheets_cache (
+  sheet_id text not null,
+  worksheet text not null,
+  values jsonb not null,
+  updated_at timestamptz not null default now(),
+  primary key (sheet_id, worksheet)
+);
+
+alter table sheets_cache enable row level security;
+
+create policy "anon puede leer sheets_cache"
+  on sheets_cache for select
+  to anon
+  using (true);
+
+create policy "anon puede escribir sheets_cache"
+  on sheets_cache for insert
+  to anon
+  with check (true);
+
+create policy "anon puede actualizar sheets_cache"
+  on sheets_cache for update
+  to anon
+  using (true);
