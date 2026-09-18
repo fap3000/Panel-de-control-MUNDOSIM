@@ -1,0 +1,32 @@
+services:
+  - type: web
+    name: tablero-backend
+    runtime: python
+    plan: free
+    rootDir: .
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      # Sin esto Render usa la última versión de Python disponible, demasiado
+      # nueva para que algunas dependencias tengan wheel precompilado.
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: GOOGLE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: TRELLO_API_KEY
+        sync: false
+      - key: TRELLO_TOKEN
+        sync: false
+      - key: TRELLO_BOARD_ID
+        value: 13mAq7FN
+      - key: SHEET_CONSOLIDADO_ID
+        value: 1OnR7GPTcbMyX_9QlZBGf88PXCbJAx9a1R3hHsWvyaYQ
+      - key: SHEET_PAGOS_PROVEEDORES_ID
+        value: 1O3OlWTxWDacM19KzYnOZMtFi9s1aZgO8iq_Cq4m4c7E
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false

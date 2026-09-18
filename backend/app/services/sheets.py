@@ -4,10 +4,12 @@ import time
 from collections import defaultdict
 from datetime import datetime
 
+import json
+
 import gspread
 from google.oauth2.service_account import Credentials
 
-from app.config import GOOGLE_SERVICE_ACCOUNT_FILE
+from app.config import GOOGLE_SERVICE_ACCOUNT_FILE, GOOGLE_SERVICE_ACCOUNT_JSON
 from app.services import supabase_cache
 from app.services.parsing import parse_amount
 
@@ -19,7 +21,11 @@ _client = None
 def _get_client():
     global _client
     if _client is None:
-        creds = Credentials.from_service_account_file(GOOGLE_SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+        if GOOGLE_SERVICE_ACCOUNT_JSON:
+            info = json.loads(GOOGLE_SERVICE_ACCOUNT_JSON)
+            creds = Credentials.from_service_account_info(info, scopes=SCOPES)
+        else:
+            creds = Credentials.from_service_account_file(GOOGLE_SERVICE_ACCOUNT_FILE, scopes=SCOPES)
         _client = gspread.authorize(creds)
     return _client
 
