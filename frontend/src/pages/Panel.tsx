@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
 import 'react-grid-layout/css/styles.css'
 import 'react-resizable/css/styles.css'
-import { loadPanel, savePanel, type LayoutItem, type StoredPanel } from '../lib/panelStorage'
+import { loadPanel, persistPanel, type LayoutItem, type StoredPanel } from '../lib/panelStorage'
 import { WIDGET_CATALOG } from '../widgets/registry'
 
 const ResponsiveGridLayout = WidthProvider(Responsive)
@@ -13,19 +13,36 @@ const COLS = { lg: 4, md: 3, sm: 2, xs: 1 }
 const GRUPOS = ['Compras', 'Ventas', 'Contabilidad'] as const
 
 export function Panel() {
-  const [stored, setStored] = useState<StoredPanel>(() => loadPanel())
+  const [stored, setStored] = useState<StoredPanel>({ layout: [], widgets: {} })
+  const [loading, setLoading] = useState(true)
   const [pickerOpen, setPickerOpen] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    loadPanel().then((panel) => {
+      if (!cancelled) {
+        setStored(panel)
+        setLoading(false)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   function persist(next: StoredPanel) {
     setStored(next)
-    savePanel(next)
+    persistPanel(next)
   }
 
   function addWidget(widgetId: string) {
     const def = WIDGET_CATALOG.find((w) => w.id === widgetId)
     if (!def) return
     const id = `w-${Date.now()}`
-    const nuevoItem: LayoutItem = { i: id, x: 0, y: Infinity, w: def.defaultSize.w, h: def.defaultSize.h }
+    // y real (no Infinity: eso funciona como convención de "al final" dentro de
+    // react-grid-layout, pero serializa a null y Supabase lo rechaza)
+    const y = stored.layout.length > 0 ? Math.max(...stored.layout.map((item) => item.y + item.h)) : 0
+    const nuevoItem: LayoutItem = { i: id, x: 0, y, w: def.defaultSize.w, h: def.defaultSize.h }
     persist({
       widgets: { ...stored.widgets, [id]: widgetId },
       layout: [...stored.layout, nuevoItem],
@@ -41,6 +58,15 @@ export function Panel() {
 
   function handleLayoutChange(layout: LayoutItem[]) {
     persist({ ...stored, layout })
+  }
+
+  if (loading) {
+    return (
+      <div className="page">
+        <h1>Mi panel</h1>
+        <p>Cargando...</p>
+      </div>
+    )
   }
 
   return (
