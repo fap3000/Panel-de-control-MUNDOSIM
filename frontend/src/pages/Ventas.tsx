@@ -102,7 +102,7 @@ export function Ventas() {
                     height={50}
                   />
                   <YAxis tick={{ fontSize: 11, fill: PALETTE.ink.muted }} stroke={PALETTE.ink.baseline} width={50} />
-                  <Tooltip formatter={(value: number) => formatArs(value)} />
+                  <Tooltip formatter={(value) => formatArs(Number(value))} />
                   <Legend wrapperStyle={{ fontSize: 12 }} />
                   <Line type="monotone" dataKey="mdz" name="Mendoza" stroke={PALETTE.categorical.blue} strokeWidth={2} dot={false} />
                   <Line type="monotone" dataKey="sj" name="San Juan" stroke={PALETTE.categorical.orange} strokeWidth={2} dot={false} />

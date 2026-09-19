@@ -56,8 +56,8 @@ export function Panel() {
     persist({ widgets, layout: stored.layout.filter((item) => item.i !== id) })
   }
 
-  function handleLayoutChange(layout: LayoutItem[]) {
-    persist({ ...stored, layout })
+  function handleLayoutChange(layout: readonly LayoutItem[]) {
+    persist({ ...stored, layout: [...layout] })
   }
 
   if (loading) {
