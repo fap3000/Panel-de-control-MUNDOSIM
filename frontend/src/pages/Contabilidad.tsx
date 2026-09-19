@@ -8,9 +8,11 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { FuenteDato } from '../components/FuenteDato'
 import { KpiCard } from '../components/KpiCard'
 import { ProveedorCard } from '../components/ProveedorCard'
 import type { ContabilidadDiaria, EgresoPorCategoria, EstimacionProveedor, ProveedorResumen } from '../lib/api'
+import { formatFechaCorta, hastaFilter, inicioDeMes, isoToLocalDate, todayIso } from '../lib/dateFilter'
 import { formatArs, formatUsd, parseMoney } from '../lib/format'
 import { PALETTE } from '../lib/palette'
 import { useEndpoint } from '../lib/useEndpoint'
@@ -29,11 +31,18 @@ function suma(data: ContabilidadDiaria[], key: keyof Omit<ContabilidadDiaria, 'f
   return data.reduce((acc, row) => acc + row[key], 0)
 }
 
-export function Contabilidad() {
-  const diario = useEndpoint<ContabilidadDiaria[]>('/contabilidad/diario')
-  const egresosCategoria = useEndpoint<EgresoPorCategoria[]>('/contabilidad/egresos-por-categoria')
+type Props = { hasta: string }
+
+export function Contabilidad({ hasta }: Props) {
+  const diarioRaw = useEndpoint<ContabilidadDiaria[]>('/contabilidad/diario')
+  const egresosCategoria = useEndpoint<EgresoPorCategoria[]>(
+    `/contabilidad/egresos-por-categoria?desde=${inicioDeMes(hasta)}&hasta=${hasta}`,
+  )
   const proveedores = useEndpoint<ProveedorResumen[]>('/compras/resumen-proveedores')
   const estimaciones = useEndpoint<EstimacionProveedor[]>('/compras/estimacion-pago-proveedores')
+
+  const esHoy = hasta === todayIso()
+  const etiquetaDia = esHoy ? 'hoy' : formatFechaCorta(hasta)
 
   const estimacionesPorProveedor =
     estimaciones.status === 'ok'
@@ -48,20 +57,27 @@ export function Contabilidad() {
     <div className="page">
       <h1>Contabilidad</h1>
 
-      {diario.status === 'loading' && <p>Cargando...</p>}
-      {diario.status === 'error' && <p className="error">Error: {diario.message}</p>}
+      {diarioRaw.status === 'loading' && <p>Cargando...</p>}
+      {diarioRaw.status === 'error' && <p className="error">Error: {diarioRaw.message}</p>}
 
-      {diario.status === 'ok' && (() => {
-        const data = diario.data
+      {diarioRaw.status === 'ok' && (() => {
+        const data = hastaFilter(diarioRaw.data, (row) => row.fecha, hasta)
+        if (data.length === 0) {
+          return <p className="hint-row">No hay movimientos registrados hasta la fecha seleccionada.</p>
+        }
         const hoy = data[data.length - 1]
-        const mesActual = data.filter((row) => esMismoMes(row.fecha, new Date()))
+        const mesActual = data.filter((row) => esMismoMes(row.fecha, isoToLocalDate(hasta)))
 
         return (
           <>
             <section className="kpis">
-              <KpiCard label="Ingresos hoy" value={formatArs(hoy.ingresos)} hint={hoy.fecha} tone="info" />
-              <KpiCard label="Egresos hoy" value={formatArs(hoy.egresos)} tone="warning" />
-              <KpiCard label="Neto hoy" value={formatArs(hoy.neto)} tone={hoy.neto >= 0 ? 'good' : 'critical'} />
+              <KpiCard label={esHoy ? 'Ingresos hoy' : `Ingresos el ${etiquetaDia}`} value={formatArs(hoy.ingresos)} hint={hoy.fecha} tone="info" />
+              <KpiCard label={esHoy ? 'Egresos hoy' : `Egresos el ${etiquetaDia}`} value={formatArs(hoy.egresos)} tone="warning" />
+              <KpiCard
+                label={esHoy ? 'Neto hoy' : `Neto el ${etiquetaDia}`}
+                value={formatArs(hoy.neto)}
+                tone={hoy.neto >= 0 ? 'good' : 'critical'}
+              />
             </section>
 
             <section className="kpis">
@@ -75,7 +91,8 @@ export function Contabilidad() {
             </section>
 
             <section className="panel">
-              <h2>Ingresos vs. egresos (últimos 45 días)</h2>
+              <h2>Ingresos vs. egresos ({esHoy ? 'últimos 45 días' : `hasta el ${etiquetaDia}`})</h2>
+              <FuenteDato texto="Ventas (ver arriba) + Consolidado Mdz y SJ — hojas 'Mdz $' y 'SJ $' (Gasto / Salida de caja)" />
               <ResponsiveContainer width="100%" height={320}>
                 <LineChart data={data.slice(-45)}>
                   <CartesianGrid strokeDasharray="3 3" stroke={PALETTE.ink.gridline} />
@@ -102,7 +119,8 @@ export function Contabilidad() {
       })()}
 
       <section className="panel">
-        <h2>Detalle de egresos por categoría (mes actual)</h2>
+        <h2>Detalle de egresos por categoría ({esHoy ? 'mes actual' : `mes de ${etiquetaDia}`})</h2>
+        <FuenteDato texto="Consolidado Mdz y SJ — hojas 'Mdz $' y 'SJ $' (columna Motivo, agrupada por palabra clave)" />
         <p className="hint-row">
           Las categorías se arman agrupando el texto libre de "Motivo" por palabra clave — "Sueldos" queda separado
           por local, el resto puede tener margen de error si hay textos no reconocidos (caen en "Otros").
@@ -137,6 +155,7 @@ export function Contabilidad() {
 
       <section className="panel">
         <h2>Cuentas por pagar a proveedores</h2>
+        <FuenteDato texto="Pagos a Proveedores — hoja 'RESUMEN' (saldo actual, no varía con la fecha elegida arriba)" />
         {proveedores.status === 'loading' && <p>Cargando...</p>}
         {proveedores.status === 'error' && <p className="error">Error: {proveedores.message}</p>}
         {proveedores.status === 'ok' && (

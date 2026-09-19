@@ -7,18 +7,24 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { FuenteDato } from '../components/FuenteDato'
 import { KpiCard } from '../components/KpiCard'
 import { ProveedorCard } from '../components/ProveedorCard'
 import type { CompraDiaria, EstimacionProveedor, PedidoTrello, ProveedorResumen } from '../lib/api'
+import { formatFechaCorta, hastaFilter, todayIso } from '../lib/dateFilter'
 import { formatUsd, parseMoney } from '../lib/format'
 import { PALETTE } from '../lib/palette'
 import { useEndpoint } from '../lib/useEndpoint'
 
-export function Compras() {
+type Props = { hasta: string }
+
+export function Compras({ hasta }: Props) {
   const proveedores = useEndpoint<ProveedorResumen[]>('/compras/resumen-proveedores')
   const estimaciones = useEndpoint<EstimacionProveedor[]>('/compras/estimacion-pago-proveedores')
-  const comprasDiarias = useEndpoint<CompraDiaria[]>('/compras/compras-diarias')
+  const comprasDiariasRaw = useEndpoint<CompraDiaria[]>('/compras/compras-diarias')
   const pedidos = useEndpoint<PedidoTrello[]>('/compras/pedidos-trello')
+
+  const esHoy = hasta === todayIso()
 
   const pendientesTotal =
     proveedores.status === 'ok'
@@ -77,6 +83,7 @@ export function Compras() {
 
       <section className="panel">
         <h2>Saldo por proveedor</h2>
+        <FuenteDato texto="Pagos a Proveedores — hoja 'RESUMEN' (saldo actual, no varía con la fecha elegida arriba)" />
         <p className="hint-row">
           Verde: se salda en 45 días o menos al ritmo de pago actual · Amarillo: 46-70 días · Rojo: más de 70 días
           o sin pagos recientes.
@@ -100,16 +107,19 @@ export function Compras() {
       </section>
 
       <section className="panel">
-        <h2>Compras diarias (USD)</h2>
-        {comprasDiarias.status === 'loading' && <p>Cargando...</p>}
-        {comprasDiarias.status === 'error' && <p className="error">Error: {comprasDiarias.message}</p>}
-        {comprasDiarias.status === 'ok' && (
+        <h2>Compras diarias (USD) {esHoy ? '' : `— hasta el ${formatFechaCorta(hasta)}`}</h2>
+        <FuenteDato texto="Consolidado Mdz y SJ — hoja 'Registro Diario U$'" />
+        {comprasDiariasRaw.status === 'loading' && <p>Cargando...</p>}
+        {comprasDiariasRaw.status === 'error' && <p className="error">Error: {comprasDiariasRaw.message}</p>}
+        {comprasDiariasRaw.status === 'ok' && (
           <ResponsiveContainer width="100%" height={300}>
             <LineChart
-              data={comprasDiarias.data.slice(-30).map((row) => ({
-                fecha: row.FECHA,
-                compras: parseMoney(row['COMPRAS (U$)']),
-              }))}
+              data={hastaFilter(comprasDiariasRaw.data, (row) => row.FECHA, hasta)
+                .slice(-30)
+                .map((row) => ({
+                  fecha: row.FECHA,
+                  compras: parseMoney(row['COMPRAS (U$)']),
+                }))}
             >
               <CartesianGrid strokeDasharray="3 3" stroke={PALETTE.ink.gridline} />
               <XAxis
@@ -131,6 +141,7 @@ export function Compras() {
 
       <section className="panel">
         <h2>Pedidos (Trello)</h2>
+        <FuenteDato texto="Tablero de Trello configurado en el backend (TRELLO_BOARD_ID)" />
         {pedidos.status === 'loading' && <p>Cargando...</p>}
         {pedidos.status === 'error' && <p className="error">Error: {pedidos.message}</p>}
         {pedidos.status === 'ok' && (

@@ -9,8 +9,10 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
+import { FuenteDato } from '../components/FuenteDato'
 import { KpiCard } from '../components/KpiCard'
 import type { TransferenciaPorCuenta, VentaDiaria } from '../lib/api'
+import { formatFechaCorta, hastaFilter, inicioDeMes, isoToLocalDate, todayIso } from '../lib/dateFilter'
 import { diasHabilesDelMes } from '../lib/feriados'
 import { formatArs, formatPercent } from '../lib/format'
 import { PALETTE } from '../lib/palette'
@@ -36,23 +38,32 @@ function promedioHistorico(data: VentaDiaria[], key: keyof VentaDiaria): number 
   return valores.reduce((a, b) => a + b, 0) / valores.length
 }
 
-export function Ventas() {
-  const diarias = useEndpoint<VentaDiaria[]>('/ventas/diarias')
-  const porCuenta = useEndpoint<TransferenciaPorCuenta[]>('/ventas/transferencias-por-cuenta')
+type Props = { hasta: string }
+
+export function Ventas({ hasta }: Props) {
+  const diariasRaw = useEndpoint<VentaDiaria[]>('/ventas/diarias')
+  const porCuenta = useEndpoint<TransferenciaPorCuenta[]>(
+    `/ventas/transferencias-por-cuenta?desde=${inicioDeMes(hasta)}&hasta=${hasta}`,
+  )
 
   const dias = diasHabilesDelMes()
+  const esHoy = hasta === todayIso()
+  const etiquetaDia = esHoy ? 'hoy' : formatFechaCorta(hasta)
 
   return (
     <div className="page">
       <h1>Ventas</h1>
 
-      {diarias.status === 'loading' && <p>Cargando...</p>}
-      {diarias.status === 'error' && <p className="error">Error: {diarias.message}</p>}
+      {diariasRaw.status === 'loading' && <p>Cargando...</p>}
+      {diariasRaw.status === 'error' && <p className="error">Error: {diariasRaw.message}</p>}
 
-      {diarias.status === 'ok' && (() => {
-        const data = diarias.data
+      {diariasRaw.status === 'ok' && (() => {
+        const data = hastaFilter(diariasRaw.data, (row) => row.fecha, hasta)
+        if (data.length === 0) {
+          return <p className="hint-row">No hay ventas registradas hasta la fecha seleccionada.</p>
+        }
         const hoy = data[data.length - 1]
-        const mesActual = data.filter((row) => esMismoMes(row.fecha, new Date()))
+        const mesActual = data.filter((row) => esMismoMes(row.fecha, isoToLocalDate(hasta)))
 
         const promCombinado = promedioHistorico(data, 'combinado')
         const promMdz = promedioHistorico(data, 'mdz')
@@ -63,11 +74,16 @@ export function Ventas() {
         return (
           <>
             <section className="kpis">
-              <KpiCard label="Consolidado hoy" value={formatArs(hoy.combinado)} hint={`${hoy.fecha} · Mdz + SJ`} tone="info" />
-              <KpiCard label="Transferencias hoy" value={formatArs(hoy.transferencias)} tone="info" />
-              <KpiCard label="Efectivo hoy" value={formatArs(hoy.efectivo)} tone="info" />
               <KpiCard
-                label="Hoy vs. promedio histórico"
+                label={esHoy ? 'Consolidado hoy' : `Consolidado el ${etiquetaDia}`}
+                value={formatArs(hoy.combinado)}
+                hint={`${hoy.fecha} · Mdz + SJ`}
+                tone="info"
+              />
+              <KpiCard label={`Transferencias ${etiquetaDia}`} value={formatArs(hoy.transferencias)} tone="info" />
+              <KpiCard label={`Efectivo ${etiquetaDia}`} value={formatArs(hoy.efectivo)} tone="info" />
+              <KpiCard
+                label={`${esHoy ? 'Hoy' : 'Ese día'} vs. promedio histórico`}
                 value={formatPercent(deltaHoy)}
                 hint={`promedio diario: ${formatArs(promCombinado)}`}
                 tone={deltaHoy >= 0 ? 'good' : deltaHoy > -20 ? 'warning' : 'critical'}
@@ -78,17 +94,20 @@ export function Ventas() {
               <KpiCard label="Acumulado del mes (ingreso)" value={formatArs(sumaKey(mesActual, 'combinado'))} tone="info" />
               <KpiCard label="Acumulado transferencias del mes" value={formatArs(sumaKey(mesActual, 'transferencias'))} tone="info" />
               <KpiCard label="Acumulado efectivo del mes" value={formatArs(sumaKey(mesActual, 'efectivo'))} tone="info" />
-              <KpiCard
-                label="Días hábiles del mes"
-                value={`${dias.transcurridos} / ${dias.totalMes}`}
-                hint={`restan ${dias.restantes} (sin domingos ni feriados)`}
-                tone="info"
-                meterPercent={(dias.transcurridos / dias.totalMes) * 100}
-              />
+              {esHoy && (
+                <KpiCard
+                  label="Días hábiles del mes"
+                  value={`${dias.transcurridos} / ${dias.totalMes}`}
+                  hint={`restan ${dias.restantes} (sin domingos ni feriados)`}
+                  tone="info"
+                  meterPercent={(dias.transcurridos / dias.totalMes) * 100}
+                />
+              )}
             </section>
 
             <section className="panel">
-              <h2>Ventas diarias por sucursal (últimos 45 días)</h2>
+              <h2>Ventas diarias por sucursal ({esHoy ? 'últimos 45 días' : `hasta el ${etiquetaDia}`})</h2>
+              <FuenteDato texto="Consolidado Mdz y SJ — hojas 'Mdz Transferencias', 'SJ Transferencias', 'Mdz $', 'SJ $'" />
               <ResponsiveContainer width="100%" height={320}>
                 <LineChart data={data.slice(-45)}>
                   <CartesianGrid strokeDasharray="3 3" stroke={PALETTE.ink.gridline} />
@@ -132,7 +151,8 @@ export function Ventas() {
       })()}
 
       <section className="panel">
-        <h2>Transferencias por cuenta (mes actual)</h2>
+        <h2>Transferencias por cuenta ({esHoy ? 'mes actual' : `mes de ${etiquetaDia}`})</h2>
+        <FuenteDato texto="Consolidado Mdz y SJ — hojas 'Mdz Transferencias' y 'SJ Transferencias'" />
         {porCuenta.status === 'loading' && <p>Cargando...</p>}
         {porCuenta.status === 'error' && <p className="error">Error: {porCuenta.message}</p>}
         {porCuenta.status === 'ok' && (

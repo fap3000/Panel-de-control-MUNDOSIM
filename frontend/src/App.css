@@ -225,6 +225,69 @@ body {
   margin: 10px 0 0;
 }
 
+.fuente-dato {
+  font-size: 11px;
+  font-style: italic;
+  color: #9ca3af;
+  margin: -6px 0 12px;
+}
+
+/* Selector de fecha (calendario global) */
+
+.periodo-bar {
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: 10px 16px 0;
+}
+
+.date-selector {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 13px;
+}
+
+.date-selector label {
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.date-selector input[type='date'] {
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.date-selector-badge {
+  background: var(--status-warning-bg);
+  color: #92660a;
+  border-radius: 999px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.date-selector-reset {
+  border: none;
+  background: transparent;
+  color: var(--status-info);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.date-selector-reset:hover {
+  text-decoration: underline;
+}
+
 /* Tarjetas de proveedor (Compras / Contabilidad) */
 
 .proveedores-grid {
