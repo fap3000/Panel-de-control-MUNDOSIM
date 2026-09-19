@@ -371,17 +371,31 @@ def _inferir_fechas_sin_anio(pagos: list[dict]) -> None:
 def _pagos_de_proveedor(sheet_id: str, config: dict) -> list[dict]:
     """Devuelve las filas con pago > 0 de una hoja de proveedor, con fecha resuelta,
     en el orden en que aparecen en la hoja (se asume cronológico, igual que el resto
-    de estas planillas armadas a mano)."""
+    de estas planillas armadas a mano).
+
+    La columna de fecha está "rellenada hacia abajo": solo la primera fila de cada
+    día la tiene escrita, las siguientes filas de ese mismo día (otro cliente, otro
+    pago) quedan con la celda vacía. Si no se arrastra la última fecha vista, se
+    pierde la enorme mayoría de los pagos reales — verificado contra las 5 hojas de
+    proveedor, entre 90% y 98% de los montos quedaban afuera por esto."""
     values = _get_values_cached(sheet_id, config["hoja"])
     date_col = config["date_col"]
     pagos = []
+    ultima_fecha_str: str | None = None
     for row in values[1:]:
-        if len(row) <= date_col or not row[date_col].strip():
+        if len(row) <= date_col:
             continue
+        fecha_str = row[date_col].strip()
+        if fecha_str:
+            ultima_fecha_str = fecha_str
+        elif ultima_fecha_str is not None:
+            fecha_str = ultima_fecha_str
+        else:
+            continue
+
         monto = sum(parse_amount(row[c]) if c < len(row) else 0.0 for c in config["pago_cols"])
         if not monto:
             continue
-        fecha_str = row[date_col].strip()
         entry = {"monto": monto}
         if config["fecha_con_anio"]:
             entry["fecha"] = _parse_fecha_con_anio(fecha_str)
