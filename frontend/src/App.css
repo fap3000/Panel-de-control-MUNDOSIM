@@ -623,6 +623,23 @@ th {
   gap: 8px;
 }
 
+.widget-trello-box {
+  margin-bottom: 10px;
+}
+
+.widget-trello-box:last-child {
+  margin-bottom: 0;
+}
+
+.widget-trello-box-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #374151;
+}
+
 .widget-mini-table {
   width: 100%;
   border-collapse: collapse;

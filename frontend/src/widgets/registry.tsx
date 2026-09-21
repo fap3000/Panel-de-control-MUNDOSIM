@@ -123,6 +123,37 @@ function PedidosTrelloWidget() {
   return <KpiWidget label="Pedidos en Trello" value={String(pedidos.data.length)} hint="tarjetas activas" tone="info" />
 }
 
+const LISTAS_PEDIDOS = ['PEDIDOS ENCARGADOS', 'RECIBIDOS', 'EN PROCESO'] as const
+
+function PedidosTrelloListaWidget() {
+  const pedidos = useEndpoint<PedidoTrello[]>('/compras/pedidos-trello')
+  if (pedidos.status !== 'ok') return <EstadoCarga state={pedidos} />
+  return (
+    <div className="widget-chart">
+      <span className="widget-title">Pedidos en Trello</span>
+      <div className="widget-table-scroll">
+        {LISTAS_PEDIDOS.map((lista) => {
+          const cards = pedidos.data.filter((c) => c.lista === lista)
+          return (
+            <div key={lista} className="widget-trello-box">
+              <span className="widget-trello-box-title">
+                {lista} <span className="cuadros-lista-count">{cards.length}</span>
+              </span>
+              {cards.length > 0 && (
+                <ul className="pedidos-list">
+                  {cards.map((c) => (
+                    <li key={c.id}>{c.nombre}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function ComprasDiariasWidget() {
   const data = useEndpoint<CompraDiaria[]>('/compras/compras-diarias')
   if (data.status !== 'ok') return <EstadoCarga state={data} />
@@ -260,6 +291,7 @@ export const WIDGET_CATALOG: WidgetDef[] = [
   { id: 'compras.saldosClave', label: 'Saldo: Sileo, Jona, The One', grupo: 'Compras', defaultSize: { w: 2, h: 2 }, Component: SaldosClaveWidget },
   { id: 'compras.rmaPendientes', label: 'RMA / NC / OC pendientes', grupo: 'Compras', defaultSize: { w: 1, h: 1 }, Component: RmaPendientesWidget },
   { id: 'compras.pedidosTrello', label: 'Pedidos en Trello', grupo: 'Compras', defaultSize: { w: 1, h: 1 }, Component: PedidosTrelloWidget },
+  { id: 'compras.pedidosTrelloLista', label: 'Pedidos en Trello (por lista)', grupo: 'Compras', defaultSize: { w: 2, h: 2 }, Component: PedidosTrelloListaWidget },
   { id: 'compras.comprasDiarias', label: 'Gráfico: Compras diarias', grupo: 'Compras', defaultSize: { w: 2, h: 2 }, Component: ComprasDiariasWidget },
 
   { id: 'ventas.consolidadoHoy', label: 'Ventas: consolidado hoy', grupo: 'Ventas', defaultSize: { w: 1, h: 1 }, Component: () => <VentasHoyWidget campo="combinado" label="Consolidado hoy" /> },
