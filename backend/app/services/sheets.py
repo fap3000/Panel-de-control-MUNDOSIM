@@ -600,18 +600,18 @@ def _parse_fecha_hora(fecha_str: str) -> datetime | None:
     return None
 
 
-def _modulos_faltantes_sucursal(sheet_id: str, sucursal: str) -> tuple[list[dict], list[dict]]:
-    """Devuelve (activos, historico) para una sucursal: 'activos' son las filas de
-    'Lista Faltantes' (siguen sin stock), 'historico' junta Lista Faltantes +
-    Faltantes Recuperados (para poder buscar 'qué se quedó sin stock tal día' aunque
-    ya se haya repuesto)."""
-    activos = []
-    for row in _rows_from_values(_get_values_cached(sheet_id, "Lista Faltantes")):
+def _filas_modulo(sheet_id: str, hoja: str, sucursal: str) -> list[dict]:
+    """Filas de módulos (categoría) de una hoja puntual ('Lista Faltantes' o
+    'Faltantes Recuperados'). Separado de _modulos_activos/_modulos_del_dia para
+    no leer 'Faltantes Recuperados' cuando no hace falta (el acumulado no la usa,
+    y es la hoja más pesada de las dos)."""
+    resultado = []
+    for row in _rows_from_values(_get_values_cached(sheet_id, hoja)):
         categoria = row.get("LÍNEA / MARCA") or row.get("F") or row.get("LÍNEA/MARCA") or ""
         if not _es_modulo(categoria):
             continue
         fecha_ingreso = _parse_fecha_hora(row.get("FECHA INGRESO", ""))
-        activos.append(
+        resultado.append(
             {
                 "sucursal": sucursal,
                 "categoria": categoria.strip(),
@@ -619,44 +619,32 @@ def _modulos_faltantes_sucursal(sheet_id: str, sucursal: str) -> tuple[list[dict
                 "fecha_ingreso": fecha_ingreso,
             }
         )
-
-    recuperados = []
-    for row in _rows_from_values(_get_values_cached(sheet_id, "Faltantes Recuperados")):
-        categoria = row.get("LÍNEA / MARCA") or row.get("LÍNEA/MARCA") or ""
-        if not _es_modulo(categoria):
-            continue
-        fecha_ingreso = _parse_fecha_hora(row.get("FECHA INGRESO", ""))
-        recuperados.append(
-            {
-                "sucursal": sucursal,
-                "categoria": categoria.strip(),
-                "articulo": row.get("ARTÍCULO", "").strip(),
-                "fecha_ingreso": fecha_ingreso,
-            }
-        )
-
-    return activos, activos + recuperados
+    return resultado
 
 
 def get_modulos_sin_stock_del_dia(sheet_mdz_id: str, sheet_sj_id: str, fecha: date) -> list[dict]:
     """Módulos que entraron a la lista de faltantes en la fecha dada (mira el
     histórico completo, no solo los que siguen activos, para poder consultar días
     pasados aunque ya se hayan repuesto)."""
-    _, hist_mdz = _modulos_faltantes_sucursal(sheet_mdz_id, "Mendoza")
-    _, hist_sj = _modulos_faltantes_sucursal(sheet_sj_id, "San Juan")
-    resultado = [
+    filas = [
+        row
+        for sheet_id, sucursal in ((sheet_mdz_id, "Mendoza"), (sheet_sj_id, "San Juan"))
+        for hoja in ("Lista Faltantes", "Faltantes Recuperados")
+        for row in _filas_modulo(sheet_id, hoja, sucursal)
+    ]
+    return [
         {"sucursal": r["sucursal"], "categoria": r["categoria"], "articulo": r["articulo"]}
-        for r in hist_mdz + hist_sj
+        for r in filas
         if r["fecha_ingreso"] is not None and r["fecha_ingreso"].date() == fecha
     ]
-    return resultado
 
 
 def get_modulos_sin_stock_acumulado(sheet_mdz_id: str, sheet_sj_id: str) -> dict:
     """Total de módulos que siguen sin stock ahora mismo (no depende de la fecha
-    elegida en el calendario — es el estado actual de 'Lista Faltantes')."""
-    activos_mdz, _ = _modulos_faltantes_sucursal(sheet_mdz_id, "Mendoza")
-    activos_sj, _ = _modulos_faltantes_sucursal(sheet_sj_id, "San Juan")
+    elegida en el calendario — es el estado actual de 'Lista Faltantes'). No lee
+    'Faltantes Recuperados': no hace falta para este cálculo."""
+    activos_mdz = _filas_modulo(sheet_mdz_id, "Lista Faltantes", "Mendoza")
+    activos_sj = _filas_modulo(sheet_sj_id, "Lista Faltantes", "San Juan")
     return {
         "mdz": len(activos_mdz),
         "sj": len(activos_sj),
