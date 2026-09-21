@@ -414,14 +414,34 @@ th {
   border-bottom: 1px solid #f0f1f3;
 }
 
-.pedido-lista {
-  display: inline-block;
+.pedidos-trello-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.pedidos-trello-box {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.pedidos-trello-box h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  margin: 0 0 8px;
+  color: #374151;
+}
+
+.pedidos-trello-count {
   background: var(--status-info-bg);
   color: var(--status-info);
   font-size: 11px;
-  padding: 1px 6px;
-  border-radius: 4px;
-  margin-right: 6px;
+  font-weight: 600;
+  padding: 1px 7px;
+  border-radius: 999px;
 }
 
 @media (min-width: 520px) {

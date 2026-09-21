@@ -16,6 +16,8 @@ import { formatUsd, parseMoney } from '../lib/format'
 import { PALETTE } from '../lib/palette'
 import { useEndpoint } from '../lib/useEndpoint'
 
+const LISTAS_PEDIDOS = ['PEDIDOS ENCARGADOS', 'RECIBIDOS', 'EN PROCESO'] as const
+
 type Props = { hasta: string }
 
 export function Compras({ hasta }: Props) {
@@ -145,13 +147,27 @@ export function Compras({ hasta }: Props) {
         {pedidos.status === 'loading' && <p>Cargando...</p>}
         {pedidos.status === 'error' && <p className="error">Error: {pedidos.message}</p>}
         {pedidos.status === 'ok' && (
-          <ul className="pedidos-list">
-            {pedidos.data.map((card) => (
-              <li key={card.id}>
-                <span className="pedido-lista">{card.lista}</span> {card.nombre}
-              </li>
-            ))}
-          </ul>
+          <div className="pedidos-trello-grid">
+            {LISTAS_PEDIDOS.map((lista) => {
+              const cards = pedidos.data.filter((card) => card.lista === lista)
+              return (
+                <div key={lista} className="pedidos-trello-box">
+                  <h3>
+                    {lista} <span className="pedidos-trello-count">{cards.length}</span>
+                  </h3>
+                  {cards.length === 0 ? (
+                    <p className="hint-row">Sin tarjetas.</p>
+                  ) : (
+                    <ul className="pedidos-list">
+                      {cards.map((card) => (
+                        <li key={card.id}>{card.nombre}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         )}
       </section>
     </div>
