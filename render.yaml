@@ -23,7 +23,7 @@ services:
       - key: SHEET_CONSOLIDADO_ID
         value: 1OnR7GPTcbMyX_9QlZBGf88PXCbJAx9a1R3hHsWvyaYQ
       - key: SHEET_PAGOS_PROVEEDORES_ID
-        value: 1O3OlWTxWDacM19KzYnOZMtFi9s1aZgO8iq_Cq4m4c7E
+        value: 1DfNY3u0UAjsDTqVSQQb61rgBfRMGKQIH
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY

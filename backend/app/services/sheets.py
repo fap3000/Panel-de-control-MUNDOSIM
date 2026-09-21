@@ -1,3 +1,4 @@
+import io
 import math
 import re
 import time
@@ -7,7 +8,10 @@ from datetime import datetime
 import json
 
 import gspread
+import requests
+from google.auth.transport.requests import Request as GoogleAuthRequest
 from google.oauth2.service_account import Credentials
+from openpyxl import load_workbook
 
 from app.config import GOOGLE_SERVICE_ACCOUNT_FILE, GOOGLE_SERVICE_ACCOUNT_JSON
 from app.services import supabase_cache
@@ -30,7 +34,99 @@ def _get_client():
     return _client
 
 
-# Dos capas de cache para get_all_values() por hoja:
+# --- Lectura de archivos Excel (.xlsx) subidos a Drive, no convertidos a
+# Sheets nativo ---
+#
+# Algunas planillas (ej. PAGOS PROVEEDORES) las siguen editando terceros
+# directamente en Excel — la API de Sheets no puede leer ese formato ("must
+# not be an Office file"). Para esos casos bajamos el archivo crudo por la
+# API de Drive (alt=media) y lo parseamos con openpyxl, sin tocar el archivo
+# ni pedirle a nadie que lo convierta.
+DRIVE_SCOPES = ["https://www.googleapis.com/auth/drive.readonly"]
+
+_drive_creds = None
+
+
+def _get_drive_token() -> str:
+    global _drive_creds
+    if _drive_creds is None:
+        if GOOGLE_SERVICE_ACCOUNT_JSON:
+            info = json.loads(GOOGLE_SERVICE_ACCOUNT_JSON)
+            _drive_creds = Credentials.from_service_account_info(info, scopes=DRIVE_SCOPES)
+        else:
+            _drive_creds = Credentials.from_service_account_file(GOOGLE_SERVICE_ACCOUNT_FILE, scopes=DRIVE_SCOPES)
+    if not _drive_creds.valid:
+        _drive_creds.refresh(GoogleAuthRequest())
+    return _drive_creds.token
+
+
+def _cell_to_str(value) -> str:
+    """Convierte un valor crudo de openpyxl al mismo formato de texto que ya
+    devuelve gspread (get_all_values()), para que el resto del pipeline
+    (parse_amount, parseo de fechas dd/mm/yyyy) no tenga que distinguir de
+    dónde vino el dato."""
+    if value is None:
+        return ""
+    if isinstance(value, bool):
+        return str(value)
+    if isinstance(value, datetime):
+        return f"{value.day}/{value.month}/{value.year}"
+    if isinstance(value, (int, float)):
+        return f"{value:.2f}".replace(".", ",")
+    return str(value).strip()
+
+
+# Sheets "es un Office file" se sabe recién al intentar abrirlo — una vez que
+# lo detectamos para un sheet_id, lo recordamos para no reintentar la API de
+# Sheets (que siempre va a fallar para ese archivo) en cada lectura.
+_OFFICE_FILE_IDS: set[str] = set()
+
+# Cache del workbook completo ya parseado (todas las hojas de una vez, para
+# no volver a bajar 1-2 MB de Drive por cada pestaña que se lea del mismo
+# archivo en una misma carga de página).
+_XLSX_WORKBOOK_CACHE: dict[str, tuple[float, dict[str, list[list[str]]]]] = {}
+
+
+def _download_xlsx_values(file_id: str) -> dict[str, list[list[str]]]:
+    token = _get_drive_token()
+    resp = requests.get(
+        f"https://www.googleapis.com/drive/v3/files/{file_id}",
+        params={"alt": "media"},
+        headers={"Authorization": f"Bearer {token}"},
+        timeout=60,
+    )
+    resp.raise_for_status()
+    wb = load_workbook(io.BytesIO(resp.content), data_only=True, read_only=True)
+    return {
+        nombre: [[_cell_to_str(v) for v in row] for row in wb[nombre].iter_rows(values_only=True)]
+        for nombre in wb.sheetnames
+    }
+
+
+def _get_xlsx_values_cached(file_id: str, worksheet_name: str) -> list[list[str]]:
+    cached = _XLSX_WORKBOOK_CACHE.get(file_id)
+    now = time.monotonic()
+    if not cached or now - cached[0] >= _MEMORY_TTL_SECONDS:
+        hojas = _download_xlsx_values(file_id)
+        _XLSX_WORKBOOK_CACHE[file_id] = (now, hojas)
+    else:
+        hojas = cached[1]
+    return hojas.get(worksheet_name, [])
+
+
+def _fetch_fresh_values(sheet_id: str, worksheet_name: str) -> list[list[str]]:
+    if sheet_id in _OFFICE_FILE_IDS:
+        return _get_xlsx_values_cached(sheet_id, worksheet_name)
+    try:
+        return _get_client().open_by_key(sheet_id).worksheet(worksheet_name).get_all_values()
+    except Exception as exc:
+        if "Office file" not in str(exc):
+            raise
+        _OFFICE_FILE_IDS.add(sheet_id)
+        return _get_xlsx_values_cached(sheet_id, worksheet_name)
+
+
+# Dos capas de cache para los valores de una hoja:
 # 1) memoria del proceso, TTL cortito — evita pegarle a Supabase por cada
 #    widget que pide la misma hoja en la misma carga de página.
 # 2) Supabase (supabase_cache), TTL más largo — sobrevive a un reinicio del
@@ -53,7 +149,7 @@ def _get_values_cached(sheet_id: str, worksheet_name: str) -> list[list[str]]:
         _VALUES_CACHE[key] = (now, remoto)
         return remoto
 
-    values = _get_client().open_by_key(sheet_id).worksheet(worksheet_name).get_all_values()
+    values = _fetch_fresh_values(sheet_id, worksheet_name)
     _VALUES_CACHE[key] = (now, values)
     supabase_cache.set(sheet_id, worksheet_name, values)
     return values
@@ -320,14 +416,14 @@ def get_egresos_por_categoria(sheet_id: str, desde: datetime, hasta: datetime) -
 # Cada hoja de proveedor en PAGOS PROVEEDORES está armada a mano con su propia
 # estructura (no hay un formato común, a diferencia de Mdz $/SJ $). Esto solo
 # cubre los proveedores donde se pudo identificar con confianza una columna de
-# "pago" limpia; Tradermax (hoja rota, "#REF!") y Merlo (columnas ambiguas,
-# fechas sin año confiable) quedan afuera a pedido de Fer.
+# "pago" limpia; Tradermax (hoja rota, "#REF!") y Merlo (columnas ambiguas)
+# quedan afuera a pedido de Fer.
 _PROVEEDOR_PAGO_CONFIG = {
-    "SILEO": {"hoja": "SILEO", "date_col": 0, "pago_cols": [2, 3], "fecha_con_anio": True},
-    "JONA": {"hoja": "JONA", "date_col": 0, "pago_cols": [4], "fecha_con_anio": True},
-    "THE ONE": {"hoja": "The ONE", "date_col": 0, "pago_cols": [5], "fecha_con_anio": True},
-    "MUNDO PARTS": {"hoja": "MUNDO PARTS", "date_col": 0, "pago_cols": [2], "fecha_con_anio": False},
-    "JULIO U.": {"hoja": "JULIO U", "date_col": 0, "pago_cols": [4], "fecha_con_anio": False},
+    "SILEO": {"hoja": "SILEO", "date_col": 0, "pago_cols": [2, 3]},
+    "JONA": {"hoja": "JONA", "date_col": 0, "pago_cols": [4]},
+    "THE ONE": {"hoja": "The ONE", "date_col": 0, "pago_cols": [5]},
+    "MUNDO PARTS": {"hoja": "MUNDO PARTS", "date_col": 0, "pago_cols": [2]},
+    "JULIO U.": {"hoja": "JULIO U", "date_col": 0, "pago_cols": [4]},
 }
 
 _ULTIMOS_N_PAGOS = 20
@@ -340,32 +436,6 @@ def _parse_fecha_con_anio(fecha_str: str) -> datetime | None:
         except ValueError:
             continue
     return None
-
-
-def _inferir_fechas_sin_anio(pagos: list[dict]) -> None:
-    """Para hojas donde la fecha no trae año (ej. '8/7'): asume que las filas están
-    en orden cronológico y reconstruye el año detectando cuándo el mes 'retrocede'
-    (indica que se cruzó a un año siguiente), anclando la última fila al año actual."""
-    anio_relativo = 0
-    mes_anterior = None
-    for p in pagos:
-        _dia, mes = p["_dia_mes"]
-        if mes_anterior is not None and mes < mes_anterior:
-            anio_relativo += 1
-        mes_anterior = mes
-        p["_anio_relativo"] = anio_relativo
-
-    if not pagos:
-        return
-    anio_actual = datetime.now().year
-    max_relativo = pagos[-1]["_anio_relativo"]
-    anio_base = anio_actual - max_relativo
-    for p in pagos:
-        dia, mes = p["_dia_mes"]
-        try:
-            p["fecha"] = datetime(anio_base + p["_anio_relativo"], mes, dia)
-        except ValueError:
-            p["fecha"] = None
 
 
 def _pagos_de_proveedor(sheet_id: str, config: dict) -> list[dict]:
@@ -396,21 +466,12 @@ def _pagos_de_proveedor(sheet_id: str, config: dict) -> list[dict]:
         monto = sum(parse_amount(row[c]) if c < len(row) else 0.0 for c in config["pago_cols"])
         if not monto:
             continue
-        entry = {"monto": monto}
-        if config["fecha_con_anio"]:
-            entry["fecha"] = _parse_fecha_con_anio(fecha_str)
-        else:
-            partes = fecha_str.split("/")
-            if len(partes) != 2 or not partes[0].isdigit() or not partes[1].isdigit():
-                continue
-            entry["_dia_mes"] = (int(partes[0]), int(partes[1]))
-            entry["fecha"] = None
-        pagos.append(entry)
+        fecha = _parse_fecha_con_anio(fecha_str)
+        if fecha is None:
+            continue
+        pagos.append({"monto": monto, "fecha": fecha})
 
-    if not config["fecha_con_anio"]:
-        _inferir_fechas_sin_anio(pagos)
-
-    return [p for p in pagos if p["fecha"] is not None]
+    return pagos
 
 
 def get_estimacion_pago_proveedores(sheet_id_pagos: str) -> list[dict]:

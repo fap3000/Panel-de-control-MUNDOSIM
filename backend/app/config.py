@@ -16,7 +16,7 @@ TRELLO_TOKEN = os.environ.get("TRELLO_TOKEN", "")
 TRELLO_BOARD_ID = os.environ.get("TRELLO_BOARD_ID", "13mAq7FN")
 
 SHEET_CONSOLIDADO_ID = os.environ.get("SHEET_CONSOLIDADO_ID", "1OnR7GPTcbMyX_9QlZBGf88PXCbJAx9a1R3hHsWvyaYQ")
-SHEET_PAGOS_PROVEEDORES_ID = os.environ.get("SHEET_PAGOS_PROVEEDORES_ID", "1O3OlWTxWDacM19KzYnOZMtFi9s1aZgO8iq_Cq4m4c7E")
+SHEET_PAGOS_PROVEEDORES_ID = os.environ.get("SHEET_PAGOS_PROVEEDORES_ID", "1DfNY3u0UAjsDTqVSQQb61rgBfRMGKQIH")
 
 # Uno o más orígenes separados por coma (ej. "https://tablero.vercel.app,http://localhost:5173")
 CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:5173")
