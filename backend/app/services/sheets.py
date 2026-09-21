@@ -182,8 +182,16 @@ def get_resumen_proveedores(sheet_id: str) -> list[dict]:
     gratis el texto formateado que devolvía la copia en Sheets. Se reconstruye
     comparando contra 'USD con TC Blue del dia': si coinciden, ya está en dólares;
     si no, está en pesos. El resto de la app (ProveedorCard, formatNativo) decide
-    $/USD mirando si el string de Saldo contiene 'USD'."""
-    filas = _rows_from_values(_get_values_cached(sheet_id, "RESUMEN"), header_row=1)
+    $/USD mirando si el string de Saldo contiene 'USD'.
+
+    La hoja trae, además de las filas de proveedor, una fila final sin nombre con
+    el total ya calculado (columna 'USD con TC Blue del dia'). Si no se descarta,
+    cualquier suma sobre todas las filas termina contando el total dos veces."""
+    filas = [
+        f
+        for f in _rows_from_values(_get_values_cached(sheet_id, "RESUMEN"), header_row=1)
+        if f.get("Proveedor", "").strip()
+    ]
     for fila in filas:
         crudo = fila.get("Saldo", "").strip()
         if not crudo:
