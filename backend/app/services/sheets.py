@@ -168,9 +168,33 @@ def _rows_from_values(values: list[list[str]], header_row: int = 0) -> list[dict
     return records
 
 
+def _moneda_ar(value: float) -> str:
+    """Formatea con separadores argentinos (miles '.', decimales ',')."""
+    return f"{value:,.2f}".replace(",", "\x00").replace(".", ",").replace("\x00", ".")
+
+
 def get_resumen_proveedores(sheet_id: str) -> list[dict]:
-    """Lee la hoja RESUMEN de PAGOS PROVEEDORES (encabezados en la fila 2)."""
-    return _rows_from_values(_get_values_cached(sheet_id, "RESUMEN"), header_row=1)
+    """Lee la hoja RESUMEN de PAGOS PROVEEDORES (encabezados en la fila 2).
+
+    'Saldo' viene en la moneda nativa de cada proveedor (Sileo/Mundo Parts/Julio U.
+    en pesos, Jona/The One en dólares) pero, al venir del Excel crudo, la celda es
+    un número pelado sin ningún indicador de moneda — antes ese indicador lo traía
+    gratis el texto formateado que devolvía la copia en Sheets. Se reconstruye
+    comparando contra 'USD con TC Blue del dia': si coinciden, ya está en dólares;
+    si no, está en pesos. El resto de la app (ProveedorCard, formatNativo) decide
+    $/USD mirando si el string de Saldo contiene 'USD'."""
+    filas = _rows_from_values(_get_values_cached(sheet_id, "RESUMEN"), header_row=1)
+    for fila in filas:
+        crudo = fila.get("Saldo", "").strip()
+        if not crudo:
+            continue
+        saldo = parse_amount(crudo)
+        usd = parse_amount(fila.get("USD con TC Blue del dia", ""))
+        es_usd = bool(saldo) and bool(usd) and abs(abs(saldo) - abs(usd)) / abs(saldo) < 0.05
+        signo = "-" if saldo < 0 else ""
+        numero = _moneda_ar(abs(saldo))
+        fila["Saldo"] = f"{signo}USD {numero}" if es_usd else f"{signo}${numero}"
+    return filas
 
 
 def get_registro_diario(sheet_id: str) -> list[dict]:
