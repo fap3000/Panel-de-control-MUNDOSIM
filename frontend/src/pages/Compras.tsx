@@ -101,6 +101,7 @@ export function Compras({ hasta }: Props) {
                   key={p.Proveedor}
                   proveedor={p}
                   estimacion={estimacionesPorProveedor.get(p.Proveedor)}
+                  estimacionesCargando={estimaciones.status === 'loading'}
                   saldoMaxUsdAbs={saldoMaxUsdAbs}
                 />
               ))}

@@ -617,6 +617,12 @@ th {
   overflow-y: auto;
 }
 
+.widget-proveedores-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
 .widget-mini-table {
   width: 100%;
   border-collapse: collapse;

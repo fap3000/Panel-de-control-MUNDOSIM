@@ -5,12 +5,16 @@ import { type ProveedorTone as Tone, toneParaDiasParaSaldar } from '../lib/prove
 type Props = {
   proveedor: ProveedorResumen
   estimacion?: EstimacionProveedor
+  /** true mientras /estimacion-pago-proveedores todavía no respondió — sin esto,
+   * la tarjeta muestra "sin datos suficientes" también durante la carga, lo que
+   * parece un error de datos cuando en realidad todavía no llegó la respuesta. */
+  estimacionesCargando?: boolean
   /** Máximo de 'USD con TC Blue del dia' entre todos los proveedores — la barra
    * compara en USD para que Sileo (pesos) y Jona (dólares) sean comparables. */
   saldoMaxUsdAbs: number
 }
 
-export function ProveedorCard({ proveedor, estimacion, saldoMaxUsdAbs }: Props) {
+export function ProveedorCard({ proveedor, estimacion, estimacionesCargando, saldoMaxUsdAbs }: Props) {
   const saldoNum = estimacion?.saldo ?? 0
   const saldoUsdAbs = Math.abs(parseMoney(proveedor['USD con TC Blue del dia']))
   const barPercent = saldoMaxUsdAbs > 0 ? Math.max(3, (saldoUsdAbs / saldoMaxUsdAbs) * 100) : 0
@@ -19,7 +23,9 @@ export function ProveedorCard({ proveedor, estimacion, saldoMaxUsdAbs }: Props) 
   let detalle: string
   let detalleRitmo: string | null = null
 
-  if (!estimacion || estimacion.sin_datos) {
+  if (!estimacion && estimacionesCargando) {
+    detalle = 'Calculando ritmo de pago...'
+  } else if (!estimacion || estimacion.sin_datos) {
     detalle = 'Sin datos suficientes para estimar el ritmo de pago.'
   } else if (saldoNum <= 0) {
     tone = 'good'

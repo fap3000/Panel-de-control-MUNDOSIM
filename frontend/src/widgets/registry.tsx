@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react'
 import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { ProveedorCard } from '../components/ProveedorCard'
 import type {
   CompraDiaria,
   ContabilidadDiaria,
@@ -75,6 +76,35 @@ function SaldoProveedoresWidget() {
   if (proveedores.status !== 'ok') return <EstadoCarga state={proveedores} />
   const total = proveedores.data.reduce((s, p) => s + parseMoney(p['USD con TC Blue del dia']), 0)
   return <KpiWidget label="Saldo total a proveedores" value={formatUsd(total)} hint="TC blue del día" tone="info" />
+}
+
+const PROVEEDORES_CLAVE = ['Sileo', 'Jona', 'The One']
+
+function SaldosClaveWidget() {
+  const proveedores = useEndpoint<ProveedorResumen[]>('/compras/resumen-proveedores')
+  const estimaciones = useEndpoint<EstimacionProveedor[]>('/compras/estimacion-pago-proveedores')
+  if (proveedores.status !== 'ok') return <EstadoCarga state={proveedores} />
+  const rows = proveedores.data.filter((p) => PROVEEDORES_CLAVE.includes(p.Proveedor))
+  const porProveedor =
+    estimaciones.status === 'ok' ? new Map(estimaciones.data.map((e) => [e.proveedor, e])) : new Map()
+  const saldoMaxUsdAbs = Math.max(1, ...rows.map((p) => Math.abs(parseMoney(p['USD con TC Blue del dia']))))
+
+  return (
+    <div className="widget-chart">
+      <span className="widget-title">Saldo: Sileo, Jona, The One</span>
+      <div className="widget-table-scroll widget-proveedores-scroll">
+        {rows.map((p) => (
+          <ProveedorCard
+            key={p.Proveedor}
+            proveedor={p}
+            estimacion={porProveedor.get(p.Proveedor)}
+            estimacionesCargando={estimaciones.status === 'loading'}
+            saldoMaxUsdAbs={saldoMaxUsdAbs}
+          />
+        ))}
+      </div>
+    </div>
+  )
 }
 
 function RmaPendientesWidget() {
@@ -227,6 +257,7 @@ export type WidgetDef = {
 
 export const WIDGET_CATALOG: WidgetDef[] = [
   { id: 'compras.saldoProveedores', label: 'Saldo total a proveedores', grupo: 'Compras', defaultSize: { w: 1, h: 1 }, Component: SaldoProveedoresWidget },
+  { id: 'compras.saldosClave', label: 'Saldo: Sileo, Jona, The One', grupo: 'Compras', defaultSize: { w: 2, h: 2 }, Component: SaldosClaveWidget },
   { id: 'compras.rmaPendientes', label: 'RMA / NC / OC pendientes', grupo: 'Compras', defaultSize: { w: 1, h: 1 }, Component: RmaPendientesWidget },
   { id: 'compras.pedidosTrello', label: 'Pedidos en Trello', grupo: 'Compras', defaultSize: { w: 1, h: 1 }, Component: PedidosTrelloWidget },
   { id: 'compras.comprasDiarias', label: 'Gráfico: Compras diarias', grupo: 'Compras', defaultSize: { w: 2, h: 2 }, Component: ComprasDiariasWidget },
