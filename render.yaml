@@ -24,6 +24,10 @@ services:
         value: 1OnR7GPTcbMyX_9QlZBGf88PXCbJAx9a1R3hHsWvyaYQ
       - key: SHEET_PAGOS_PROVEEDORES_ID
         value: 1DfNY3u0UAjsDTqVSQQb61rgBfRMGKQIH
+      - key: SHEET_FALTANTES_MDZ_ID
+        value: 1v-G55wdeRUASG0KNI2Z9SzCy3Kg8RfO37pzeqSWmm5Q
+      - key: SHEET_FALTANTES_SJ_ID
+        value: 17dDpvHVurcLGjOMZY0JpN8Sv1W1kADCxGCa8eqlAM6I
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY

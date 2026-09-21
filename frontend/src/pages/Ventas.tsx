@@ -11,7 +11,7 @@ import {
 } from 'recharts'
 import { FuenteDato } from '../components/FuenteDato'
 import { KpiCard } from '../components/KpiCard'
-import type { TransferenciaPorCuenta, VentaDiaria } from '../lib/api'
+import type { ModuloSinStock, ModulosSinStockAcumulado, TransferenciaPorCuenta, VentaDiaria } from '../lib/api'
 import { formatFechaCorta, hastaFilter, inicioDeMes, isoToLocalDate, todayIso } from '../lib/dateFilter'
 import { diasHabilesDelMes } from '../lib/feriados'
 import { formatArs, formatPercent } from '../lib/format'
@@ -45,6 +45,8 @@ export function Ventas({ hasta }: Props) {
   const porCuenta = useEndpoint<TransferenciaPorCuenta[]>(
     `/ventas/transferencias-por-cuenta?desde=${inicioDeMes(hasta)}&hasta=${hasta}`,
   )
+  const modulosDelDia = useEndpoint<ModuloSinStock[]>(`/ventas/modulos-sin-stock-del-dia?fecha=${hasta}`)
+  const modulosAcumulado = useEndpoint<ModulosSinStockAcumulado>('/ventas/modulos-sin-stock-acumulado')
 
   const dias = diasHabilesDelMes()
   const esHoy = hasta === todayIso()
@@ -80,8 +82,6 @@ export function Ventas({ hasta }: Props) {
                 hint={`${hoy.fecha} · Mdz + SJ`}
                 tone="info"
               />
-              <KpiCard label={`Transferencias ${etiquetaDia}`} value={formatArs(hoy.transferencias)} tone="info" />
-              <KpiCard label={`Efectivo ${etiquetaDia}`} value={formatArs(hoy.efectivo)} tone="info" />
               <KpiCard
                 label={`${esHoy ? 'Hoy' : 'Ese día'} vs. promedio histórico`}
                 value={formatPercent(deltaHoy)}
@@ -91,9 +91,14 @@ export function Ventas({ hasta }: Props) {
             </section>
 
             <section className="kpis">
+              <KpiCard label={`Mendoza efectivo ${etiquetaDia}`} value={formatArs(hoy.mdz_efectivo)} tone="info" />
+              <KpiCard label={`Mendoza transferencias ${etiquetaDia}`} value={formatArs(hoy.mdz_transferencias)} tone="info" />
+              <KpiCard label={`San Juan efectivo ${etiquetaDia}`} value={formatArs(hoy.sj_efectivo)} tone="info" />
+              <KpiCard label={`San Juan transferencias ${etiquetaDia}`} value={formatArs(hoy.sj_transferencias)} tone="info" />
+            </section>
+
+            <section className="kpis">
               <KpiCard label="Acumulado del mes (ingreso)" value={formatArs(sumaKey(mesActual, 'combinado'))} tone="info" />
-              <KpiCard label="Acumulado transferencias del mes" value={formatArs(sumaKey(mesActual, 'transferencias'))} tone="info" />
-              <KpiCard label="Acumulado efectivo del mes" value={formatArs(sumaKey(mesActual, 'efectivo'))} tone="info" />
               {esHoy && (
                 <KpiCard
                   label="Días hábiles del mes"
@@ -149,6 +154,46 @@ export function Ventas({ hasta }: Props) {
           </>
         )
       })()}
+
+      <section className="panel">
+        <h2>Módulos sin stock ({etiquetaDia})</h2>
+        <FuenteDato texto="Listas de precios Mdz y SJ — hojas 'Lista Faltantes' y 'Faltantes Recuperados'" />
+        {modulosAcumulado.status === 'ok' && (
+          <p className="hint-row">
+            Acumulado sin stock ahora mismo (todos los días): <strong>{modulosAcumulado.data.total}</strong> módulos
+            — Mendoza: {modulosAcumulado.data.mdz} · San Juan: {modulosAcumulado.data.sj}
+          </p>
+        )}
+        {modulosDelDia.status === 'loading' && <p>Cargando...</p>}
+        {modulosDelDia.status === 'error' && <p className="error">Error: {modulosDelDia.message}</p>}
+        {modulosDelDia.status === 'ok' && (
+          modulosDelDia.data.length === 0 ? (
+            <p className="hint-row">Ningún módulo entró a faltantes {esHoy ? 'hoy' : `el ${etiquetaDia}`}.</p>
+          ) : (
+            <div className="cuadros-lista-grid">
+              {(['Mendoza', 'San Juan'] as const).map((sucursal) => {
+                const items = modulosDelDia.data.filter((m) => m.sucursal === sucursal)
+                return (
+                  <div key={sucursal} className="cuadros-lista-box">
+                    <h3>
+                      {sucursal} <span className="cuadros-lista-count">{items.length}</span>
+                    </h3>
+                    {items.length === 0 ? (
+                      <p className="hint-row">Ninguno.</p>
+                    ) : (
+                      <ul className="pedidos-list">
+                        {items.map((m, i) => (
+                          <li key={i}>{m.articulo}</li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )
+        )}
+      </section>
 
       <section className="panel">
         <h2>Transferencias por cuenta ({esHoy ? 'mes actual' : `mes de ${etiquetaDia}`})</h2>

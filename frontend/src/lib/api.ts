@@ -64,6 +64,18 @@ export type EgresoPorCategoria = {
   total: number
 }
 
+export type ModuloSinStock = {
+  sucursal: 'Mendoza' | 'San Juan'
+  categoria: string
+  articulo: string
+}
+
+export type ModulosSinStockAcumulado = {
+  mdz: number
+  sj: number
+  total: number
+}
+
 export type EstimacionProveedor = {
   proveedor: string
   saldo: number

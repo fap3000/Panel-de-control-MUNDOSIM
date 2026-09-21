@@ -3,7 +3,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, HTTPException
 
-from app.config import SHEET_CONSOLIDADO_ID
+from app.config import SHEET_CONSOLIDADO_ID, SHEET_FALTANTES_MDZ_ID, SHEET_FALTANTES_SJ_ID
 from app.services import sheets
 
 router = APIRouter(prefix="/ventas", tags=["ventas"])
@@ -32,3 +32,23 @@ def transferencias_por_cuenta(desde: str | None = None, hasta: str | None = None
         return sheets.get_transferencias_por_cuenta(SHEET_CONSOLIDADO_ID, desde_dt, hasta_dt)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"No se pudo agrupar transferencias por cuenta: {exc}") from exc
+
+
+@router.get("/modulos-sin-stock-del-dia")
+def modulos_sin_stock_del_dia(fecha: str | None = None):
+    """Módulos (Mdz + SJ) que entraron a la lista de faltantes en la fecha dada.
+    Sin parámetro, usa hoy."""
+    try:
+        fecha_dt = datetime.strptime(fecha, "%Y-%m-%d").date() if fecha else datetime.now().date()
+        return sheets.get_modulos_sin_stock_del_dia(SHEET_FALTANTES_MDZ_ID, SHEET_FALTANTES_SJ_ID, fecha_dt)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"No se pudo leer módulos sin stock del día: {exc}") from exc
+
+
+@router.get("/modulos-sin-stock-acumulado")
+def modulos_sin_stock_acumulado():
+    """Total de módulos que siguen sin stock ahora mismo (no varía con la fecha)."""
+    try:
+        return sheets.get_modulos_sin_stock_acumulado(SHEET_FALTANTES_MDZ_ID, SHEET_FALTANTES_SJ_ID)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"No se pudo calcular el acumulado de módulos sin stock: {exc}") from exc

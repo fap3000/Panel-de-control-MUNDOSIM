@@ -3,7 +3,7 @@ import math
 import re
 import time
 from collections import defaultdict
-from datetime import datetime
+from datetime import date, datetime
 
 import json
 
@@ -566,3 +566,99 @@ def get_estimacion_pago_proveedores(sheet_id_pagos: str) -> list[dict]:
         )
 
     return resultado
+
+
+# --- Módulos sin stock (hojas 'Lista Faltantes' / 'Faltantes Recuperados') ---
+#
+# Cada sucursal tiene su propia planilla de lista de precios con estas dos hojas.
+# 'Lista Faltantes' son los artículos que HOY siguen sin stock (columna FECHA
+# INGRESO = cuándo entraron a faltantes). 'Faltantes Recuperados' son los que ya
+# se repusieron (FECHA SALIDA = cuándo volvieron a tener stock). No hay una
+# categoría "MÓDULOS": son las categorías de marca sin prefijo (a diferencia de
+# "BATERIAS X", "GLASS X", "PLACAS X") y sin contar "GENERAL" (que son baterías
+# de otras marcas) — confirmado con Fer.
+_PREFIJOS_NO_MODULO = ("BATERIAS", "GLASS", "PLACAS")
+
+
+def _es_modulo(categoria: str) -> bool:
+    cat = categoria.strip().upper()
+    if not cat or cat == "GENERAL":
+        return False
+    return not any(cat.startswith(p) for p in _PREFIJOS_NO_MODULO)
+
+
+def _parse_fecha_hora(fecha_str: str) -> datetime | None:
+    """'FECHA INGRESO'/'FECHA SALIDA' vienen como 'dd/mm/yyyy HH:MM'."""
+    fecha_str = fecha_str.strip()
+    if not fecha_str:
+        return None
+    for fmt in ("%d/%m/%Y %H:%M", "%d/%m/%Y"):
+        try:
+            return datetime.strptime(fecha_str, fmt)
+        except ValueError:
+            continue
+    return None
+
+
+def _modulos_faltantes_sucursal(sheet_id: str, sucursal: str) -> tuple[list[dict], list[dict]]:
+    """Devuelve (activos, historico) para una sucursal: 'activos' son las filas de
+    'Lista Faltantes' (siguen sin stock), 'historico' junta Lista Faltantes +
+    Faltantes Recuperados (para poder buscar 'qué se quedó sin stock tal día' aunque
+    ya se haya repuesto)."""
+    activos = []
+    for row in _rows_from_values(_get_values_cached(sheet_id, "Lista Faltantes")):
+        categoria = row.get("LÍNEA / MARCA") or row.get("F") or row.get("LÍNEA/MARCA") or ""
+        if not _es_modulo(categoria):
+            continue
+        fecha_ingreso = _parse_fecha_hora(row.get("FECHA INGRESO", ""))
+        activos.append(
+            {
+                "sucursal": sucursal,
+                "categoria": categoria.strip(),
+                "articulo": row.get("ARTÍCULO", "").strip(),
+                "fecha_ingreso": fecha_ingreso,
+            }
+        )
+
+    recuperados = []
+    for row in _rows_from_values(_get_values_cached(sheet_id, "Faltantes Recuperados")):
+        categoria = row.get("LÍNEA / MARCA") or row.get("LÍNEA/MARCA") or ""
+        if not _es_modulo(categoria):
+            continue
+        fecha_ingreso = _parse_fecha_hora(row.get("FECHA INGRESO", ""))
+        recuperados.append(
+            {
+                "sucursal": sucursal,
+                "categoria": categoria.strip(),
+                "articulo": row.get("ARTÍCULO", "").strip(),
+                "fecha_ingreso": fecha_ingreso,
+            }
+        )
+
+    return activos, activos + recuperados
+
+
+def get_modulos_sin_stock_del_dia(sheet_mdz_id: str, sheet_sj_id: str, fecha: date) -> list[dict]:
+    """Módulos que entraron a la lista de faltantes en la fecha dada (mira el
+    histórico completo, no solo los que siguen activos, para poder consultar días
+    pasados aunque ya se hayan repuesto)."""
+    _, hist_mdz = _modulos_faltantes_sucursal(sheet_mdz_id, "Mendoza")
+    _, hist_sj = _modulos_faltantes_sucursal(sheet_sj_id, "San Juan")
+    resultado = [
+        {"sucursal": r["sucursal"], "categoria": r["categoria"], "articulo": r["articulo"]}
+        for r in hist_mdz + hist_sj
+        if r["fecha_ingreso"] is not None and r["fecha_ingreso"].date() == fecha
+    ]
+    return resultado
+
+
+def get_modulos_sin_stock_acumulado(sheet_mdz_id: str, sheet_sj_id: str) -> dict:
+    """Total de módulos que siguen sin stock ahora mismo (no depende de la fecha
+    elegida en el calendario — es el estado actual de 'Lista Faltantes')."""
+    activos_mdz, _ = _modulos_faltantes_sucursal(sheet_mdz_id, "Mendoza")
+    activos_sj, _ = _modulos_faltantes_sucursal(sheet_sj_id, "San Juan")
+    return {
+        "mdz": len(activos_mdz),
+        "sj": len(activos_sj),
+        "total": len(activos_mdz) + len(activos_sj),
+    }

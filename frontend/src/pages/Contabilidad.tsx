@@ -11,7 +11,7 @@ import {
 import { FuenteDato } from '../components/FuenteDato'
 import { KpiCard } from '../components/KpiCard'
 import { ProveedorCard } from '../components/ProveedorCard'
-import type { ContabilidadDiaria, EgresoPorCategoria, EstimacionProveedor, ProveedorResumen } from '../lib/api'
+import type { ContabilidadDiaria, EgresoPorCategoria, EstimacionProveedor, ProveedorResumen, VentaDiaria } from '../lib/api'
 import { formatFechaCorta, hastaFilter, inicioDeMes, isoToLocalDate, todayIso } from '../lib/dateFilter'
 import { formatArs, formatUsd, parseMoney } from '../lib/format'
 import { PALETTE } from '../lib/palette'
@@ -35,6 +35,7 @@ type Props = { hasta: string }
 
 export function Contabilidad({ hasta }: Props) {
   const diarioRaw = useEndpoint<ContabilidadDiaria[]>('/contabilidad/diario')
+  const ventasRaw = useEndpoint<VentaDiaria[]>('/ventas/diarias')
   const egresosCategoria = useEndpoint<EgresoPorCategoria[]>(
     `/contabilidad/egresos-por-categoria?desde=${inicioDeMes(hasta)}&hasta=${hasta}`,
   )
@@ -68,6 +69,15 @@ export function Contabilidad({ hasta }: Props) {
         const hoy = data[data.length - 1]
         const mesActual = data.filter((row) => esMismoMes(row.fecha, isoToLocalDate(hasta)))
 
+        const ventasMes =
+          ventasRaw.status === 'ok'
+            ? hastaFilter(ventasRaw.data, (row) => row.fecha, hasta).filter((row) =>
+                esMismoMes(row.fecha, isoToLocalDate(hasta)),
+              )
+            : []
+        const transferenciasMes = ventasMes.reduce((s, r) => s + r.transferencias, 0)
+        const efectivoMes = ventasMes.reduce((s, r) => s + r.efectivo, 0)
+
         return (
           <>
             <section className="kpis">
@@ -82,6 +92,8 @@ export function Contabilidad({ hasta }: Props) {
 
             <section className="kpis">
               <KpiCard label="Ingresos del mes" value={formatArs(suma(mesActual, 'ingresos'))} tone="info" />
+              <KpiCard label="Transferencias del mes" value={formatArs(transferenciasMes)} tone="info" />
+              <KpiCard label="Efectivo del mes" value={formatArs(efectivoMes)} tone="info" />
               <KpiCard label="Egresos del mes" value={formatArs(suma(mesActual, 'egresos'))} tone="warning" />
               <KpiCard
                 label="Neto del mes"

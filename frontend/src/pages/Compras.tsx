@@ -148,13 +148,13 @@ export function Compras({ hasta }: Props) {
         {pedidos.status === 'loading' && <p>Cargando...</p>}
         {pedidos.status === 'error' && <p className="error">Error: {pedidos.message}</p>}
         {pedidos.status === 'ok' && (
-          <div className="pedidos-trello-grid">
+          <div className="cuadros-lista-grid">
             {LISTAS_PEDIDOS.map((lista) => {
               const cards = pedidos.data.filter((card) => card.lista === lista)
               return (
-                <div key={lista} className="pedidos-trello-box">
+                <div key={lista} className="cuadros-lista-box">
                   <h3>
-                    {lista} <span className="pedidos-trello-count">{cards.length}</span>
+                    {lista} <span className="cuadros-lista-count">{cards.length}</span>
                   </h3>
                   {cards.length === 0 ? (
                     <p className="hint-row">Sin tarjetas.</p>

@@ -18,6 +18,10 @@ TRELLO_BOARD_ID = os.environ.get("TRELLO_BOARD_ID", "13mAq7FN")
 SHEET_CONSOLIDADO_ID = os.environ.get("SHEET_CONSOLIDADO_ID", "1OnR7GPTcbMyX_9QlZBGf88PXCbJAx9a1R3hHsWvyaYQ")
 SHEET_PAGOS_PROVEEDORES_ID = os.environ.get("SHEET_PAGOS_PROVEEDORES_ID", "1DfNY3u0UAjsDTqVSQQb61rgBfRMGKQIH")
 
+# Listas de precios/stock por sucursal — hojas 'Lista Faltantes' y 'Faltantes Recuperados'
+SHEET_FALTANTES_MDZ_ID = os.environ.get("SHEET_FALTANTES_MDZ_ID", "1v-G55wdeRUASG0KNI2Z9SzCy3Kg8RfO37pzeqSWmm5Q")
+SHEET_FALTANTES_SJ_ID = os.environ.get("SHEET_FALTANTES_SJ_ID", "17dDpvHVurcLGjOMZY0JpN8Sv1W1kADCxGCa8eqlAM6I")
+
 # Uno o más orígenes separados por coma (ej. "https://tablero.vercel.app,http://localhost:5173")
 CORS_ORIGINS = os.environ.get("CORS_ORIGINS", "http://localhost:5173")
 
