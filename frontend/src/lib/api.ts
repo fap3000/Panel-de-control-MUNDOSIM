@@ -76,6 +76,19 @@ export type ModulosSinStockAcumulado = {
   total: number
 }
 
+export type ComparativaCaja = {
+  fecha: string
+  sucursal: 'Mendoza' | 'San Juan'
+  cajas: string[]
+  nuestro_efectivo: number
+  nuestro_transferencias: number
+  real_efectivo: number
+  real_transferencias: number
+  real_gastos: number
+  diferencia_efectivo: number
+  diferencia_transferencias: number
+}
+
 export type EstimacionProveedor = {
   proveedor: string
   saldo: number

@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import CORS_ORIGINS
-from app.routers import compras, contabilidad, ventas
+from app.routers import captura, compras, contabilidad, ventas
 
 app = FastAPI(title="Tablero Integral - API")
 
@@ -16,6 +16,7 @@ app.add_middleware(
 app.include_router(compras.router)
 app.include_router(ventas.router)
 app.include_router(contabilidad.router)
+app.include_router(captura.router)
 
 
 @app.get("/health")

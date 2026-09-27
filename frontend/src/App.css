@@ -225,6 +225,28 @@ body {
   margin: 10px 0 0;
 }
 
+.dif-tono {
+  font-weight: 600;
+}
+
+.dif-tono.tone-good {
+  color: var(--status-good-text);
+}
+
+.dif-tono.tone-warning {
+  color: #b3660a;
+}
+
+.dif-tono.tone-critical {
+  color: var(--status-critical);
+}
+
+.dif-tono.tone-neutral {
+  color: #9ca3af;
+  font-weight: 400;
+  font-style: italic;
+}
+
 .fuente-dato {
   font-size: 11px;
   font-style: italic;

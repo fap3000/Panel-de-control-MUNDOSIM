@@ -62,3 +62,45 @@ create policy "anon puede actualizar sheets_cache"
   on sheets_cache for update
   to anon
   using (true);
+
+-- Archivo histórico de los cierres de caja diarios (hojas 'CAJA' de Mdz/SJ,
+-- que se resetean todos los días con el cierre del día siguiente). Sin esto
+-- se pierde el dato de hoy en cuanto lo pisen mañana. Se captura una vez por
+-- día vía POST /captura/cierre-caja (ver app/routers/captura.py), disparado
+-- por un cron externo ~20:30/21:00.
+create table if not exists cierre_caja_diario (
+  fecha date not null,
+  sucursal text not null,
+  caja text not null,               -- nombre del cajero/turno (ej. 'CESIA', 'NICO')
+  transferencias_sistema numeric,
+  transferencias_real numeric,
+  transferencias_diferencia numeric,
+  efectivo_sistema numeric,
+  efectivo_real numeric,
+  efectivo_diferencia numeric,
+  gastos_sistema numeric,
+  gastos_real numeric,
+  gastos_diferencia numeric,
+  total_sistema numeric,
+  total_real numeric,
+  total_diferencia numeric,
+  captured_at timestamptz not null default now(),
+  primary key (fecha, sucursal, caja)
+);
+
+alter table cierre_caja_diario enable row level security;
+
+create policy "anon puede leer cierre_caja_diario"
+  on cierre_caja_diario for select
+  to anon
+  using (true);
+
+create policy "anon puede escribir cierre_caja_diario"
+  on cierre_caja_diario for insert
+  to anon
+  with check (true);
+
+create policy "anon puede actualizar cierre_caja_diario"
+  on cierre_caja_diario for update
+  to anon
+  using (true);

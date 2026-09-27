@@ -11,7 +11,14 @@ import {
 import { FuenteDato } from '../components/FuenteDato'
 import { KpiCard } from '../components/KpiCard'
 import { ProveedorCard } from '../components/ProveedorCard'
-import type { ContabilidadDiaria, EgresoPorCategoria, EstimacionProveedor, ProveedorResumen, VentaDiaria } from '../lib/api'
+import type {
+  ComparativaCaja,
+  ContabilidadDiaria,
+  EgresoPorCategoria,
+  EstimacionProveedor,
+  ProveedorResumen,
+  VentaDiaria,
+} from '../lib/api'
 import { formatFechaCorta, hastaFilter, inicioDeMes, isoToLocalDate, todayIso } from '../lib/dateFilter'
 import { formatArs, formatUsd, parseMoney } from '../lib/format'
 import { PALETTE } from '../lib/palette'
@@ -31,6 +38,15 @@ function suma(data: ContabilidadDiaria[], key: keyof Omit<ContabilidadDiaria, 'f
   return data.reduce((acc, row) => acc + row[key], 0)
 }
 
+/** '—' si todavía no cargaron el dato nuestro (0 = no es que dio $0, es que esa
+ * fecha aún no está en Mdz $/SJ $ — se completa solo apenas lo carguen). */
+function celdaDif(nuestro: number, diferencia: number): { texto: string; tone: 'good' | 'warning' | 'critical' | 'neutral' } {
+  if (nuestro === 0) return { texto: 'sin datos aún', tone: 'neutral' }
+  const abs = Math.abs(diferencia)
+  const tone = abs <= 1000 ? 'good' : abs <= 20000 ? 'warning' : 'critical'
+  return { texto: formatArs(diferencia), tone }
+}
+
 type Props = { hasta: string }
 
 export function Contabilidad({ hasta }: Props) {
@@ -41,6 +57,7 @@ export function Contabilidad({ hasta }: Props) {
   )
   const proveedores = useEndpoint<ProveedorResumen[]>('/compras/resumen-proveedores')
   const estimaciones = useEndpoint<EstimacionProveedor[]>('/compras/estimacion-pago-proveedores')
+  const comparativaCaja = useEndpoint<ComparativaCaja[]>('/contabilidad/comparativa-caja')
 
   const esHoy = hasta === todayIso()
   const etiquetaDia = esHoy ? 'hoy' : formatFechaCorta(hasta)
@@ -129,6 +146,69 @@ export function Contabilidad({ hasta }: Props) {
           </>
         )
       })()}
+
+      <section className="panel">
+        <h2>Cierre de caja: nuestro cálculo vs. real</h2>
+        <FuenteDato texto="Hojas 'CAJA' de Mdz y SJ (capturadas ~20:30 antes de que se reseteen) vs. nuestro cálculo de 'Mdz $'/'SJ $' + Transferencias" />
+        <p className="hint-row">
+          "Real" es el conteo físico de cierre de caja (suma de todas las cajas/cajeros del día). "Sin datos aún"
+          significa que esa fecha todavía no se cargó en Mdz $/SJ $ — se completa solo apenas la carguen.
+        </p>
+        {comparativaCaja.status === 'loading' && <p>Cargando...</p>}
+        {comparativaCaja.status === 'error' && <p className="error">Error: {comparativaCaja.message}</p>}
+        {comparativaCaja.status === 'ok' && (
+          comparativaCaja.data.length === 0 ? (
+            <p className="hint-row">Todavía no hay cierres de caja guardados.</p>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th rowSpan={2}>Fecha</th>
+                    <th rowSpan={2}>Sucursal</th>
+                    <th rowSpan={2}>Cajas</th>
+                    <th colSpan={3}>Efectivo</th>
+                    <th colSpan={3}>Transferencias</th>
+                    <th rowSpan={2}>Gastos (real)</th>
+                  </tr>
+                  <tr>
+                    <th>Nuestro</th>
+                    <th>Real</th>
+                    <th>Diferencia</th>
+                    <th>Nuestro</th>
+                    <th>Real</th>
+                    <th>Diferencia</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...comparativaCaja.data].reverse().map((c) => {
+                    const difEfectivo = celdaDif(c.nuestro_efectivo, c.diferencia_efectivo)
+                    const difTransf = celdaDif(c.nuestro_transferencias, c.diferencia_transferencias)
+                    return (
+                      <tr key={`${c.fecha}-${c.sucursal}`}>
+                        <td data-label="Fecha">{formatFechaCorta(c.fecha)}</td>
+                        <td data-label="Sucursal">{c.sucursal}</td>
+                        <td data-label="Cajas">{c.cajas.join(', ')}</td>
+                        <td data-label="Efectivo nuestro">{formatArs(c.nuestro_efectivo)}</td>
+                        <td data-label="Efectivo real">{formatArs(c.real_efectivo)}</td>
+                        <td data-label="Efectivo diferencia">
+                          <span className={`dif-tono tone-${difEfectivo.tone}`}>{difEfectivo.texto}</span>
+                        </td>
+                        <td data-label="Transferencias nuestro">{formatArs(c.nuestro_transferencias)}</td>
+                        <td data-label="Transferencias real">{formatArs(c.real_transferencias)}</td>
+                        <td data-label="Transferencias diferencia">
+                          <span className={`dif-tono tone-${difTransf.tone}`}>{difTransf.texto}</span>
+                        </td>
+                        <td data-label="Gastos (real)">{formatArs(c.real_gastos)}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )
+        )}
+      </section>
 
       <section className="panel">
         <h2>Detalle de egresos por categoría ({esHoy ? 'mes actual' : `mes de ${etiquetaDia}`})</h2>

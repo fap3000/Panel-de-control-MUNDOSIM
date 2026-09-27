@@ -28,6 +28,12 @@ services:
         value: 1v-G55wdeRUASG0KNI2Z9SzCy3Kg8RfO37pzeqSWmm5Q
       - key: SHEET_FALTANTES_SJ_ID
         value: 17dDpvHVurcLGjOMZY0JpN8Sv1W1kADCxGCa8eqlAM6I
+      - key: SHEET_CAJA_MDZ_ID
+        value: 1_2fplAHvUnXr61dbbcM4X1HNDwEPclg0EbMKnNj17kQ
+      - key: SHEET_CAJA_SJ_ID
+        value: 1-0a3Z20xC3UP7J0R7xY2DwzKttF5A0njTZ-q3PriflI
+      - key: CAPTURA_TOKEN
+        sync: false
       - key: SUPABASE_URL
         sync: false
       - key: SUPABASE_ANON_KEY

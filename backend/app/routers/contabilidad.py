@@ -1,10 +1,10 @@
 import calendar
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, HTTPException
 
 from app.config import SHEET_CONSOLIDADO_ID
-from app.services import sheets
+from app.services import cierre_caja, sheets
 
 router = APIRouter(prefix="/contabilidad", tags=["contabilidad"])
 
@@ -51,3 +51,19 @@ def egresos_por_categoria(desde: str | None = None, hasta: str | None = None):
         return sheets.get_egresos_por_categoria(SHEET_CONSOLIDADO_ID, desde_dt, hasta_dt)
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"No se pudo agrupar egresos por categoría: {exc}") from exc
+
+
+@router.get("/comparativa-caja")
+def comparativa_caja(desde: str | None = None, hasta: str | None = None):
+    """Nuestro cálculo (Mdz $/SJ $ + Transferencias) vs. el cierre real de caja
+    guardado día a día. Sin parámetros, últimas 2 semanas."""
+    try:
+        if desde and hasta:
+            desde_dt = datetime.strptime(desde, "%Y-%m-%d").date()
+            hasta_dt = datetime.strptime(hasta, "%Y-%m-%d").date()
+        else:
+            hasta_dt = datetime.now().date()
+            desde_dt = hasta_dt - timedelta(days=13)
+        return cierre_caja.get_comparativa_caja(SHEET_CONSOLIDADO_ID, desde_dt, hasta_dt)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"No se pudo armar la comparativa de caja: {exc}") from exc
