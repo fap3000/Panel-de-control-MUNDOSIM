@@ -9,14 +9,19 @@ router = APIRouter(prefix="/captura", tags=["captura"])
 @router.post("/cierre-caja")
 def capturar_cierre_caja(token: str):
     """Lee las hojas 'CAJA' de Mdz/SJ (hoy) y las guarda en Supabase antes de que
-    se pisen mañana. Pensado para dispararse desde un cron externo ~20:30/21hs,
-    no desde el frontend — por eso el token en vez de auth de usuario."""
+    se pisen mañana. Pensado para dispararse desde un cron externo ~20:30hs entre
+    semana y ~14:40hs los sábados (no trabajan domingo), no desde el frontend —
+    por eso el token en vez de auth de usuario."""
     if not CAPTURA_TOKEN or token != CAPTURA_TOKEN:
         raise HTTPException(status_code=403, detail="Token inválido")
     try:
         bloques = cierre_caja.get_cierres_del_dia(SHEET_CAJA_MDZ_ID, "Mendoza") + cierre_caja.get_cierres_del_dia(
             SHEET_CAJA_SJ_ID, "San Juan"
         )
+        # No trabajan los domingos — si el cron se dispara igual (mal configurado,
+        # o la hoja quedó con la fecha del sábado sin resetear), no se guarda nada
+        # con fecha domingo en vez de ensuciar el histórico.
+        bloques = [b for b in bloques if b["fecha"].weekday() != 6]
         guardados = cierre_caja_store.guardar(bloques)
         return {"guardados": guardados, "bloques": bloques}
     except Exception as exc:
